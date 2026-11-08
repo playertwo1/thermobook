@@ -9,6 +9,7 @@ static partial class Program
     static int Main(string[] args)
     {
         if (args.Contains("--diagnostico")) return Diagnose();
+        if (args.Contains("--restaurar")) return Restore();
 
         using var mutex = new Mutex(true, @"Local\ThermoBook", out bool createdNew);
         using var openPanel = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\ThermoBook.AbrirPainel");
@@ -42,6 +43,17 @@ static partial class Program
             Energia: turbo {turbo} ({PowerService.TurboNames.GetValueOrDefault(turbo, "?")}), limite {limit}% -> perfil {PowerService.Current()?.Name ?? "personalizado"}
             """);
         return 0;
+    }
+
+    /// <summary>Volta ao perfil Normal (padrão de fábrica). Usado pelo desinstalador.</summary>
+    private static int Restore()
+    {
+        try
+        {
+            PowerService.Apply(PowerService.Profiles.First(p => p.Name == "Normal"));
+            return 0;
+        }
+        catch { return 1; } // sem janela de erro no meio da desinstalação
     }
 
     [LibraryImport("kernel32.dll")]

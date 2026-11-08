@@ -31,6 +31,7 @@ internal sealed partial class MainForm : Form
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
         Text = "ThermoBook";
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         Font = new Font("Segoe UI", 9.5f);
         BackColor = Bg;
         ForeColor = Fg;
