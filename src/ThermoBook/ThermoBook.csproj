@@ -9,6 +9,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <Version>0.1.0</Version>
     <Product>ThermoBook</Product>
+    <ApplicationIcon>..\..\assets\thermobook.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>ThermoBook</RootNamespace>
   </PropertyGroup>
