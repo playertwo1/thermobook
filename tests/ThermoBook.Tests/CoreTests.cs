@@ -96,6 +96,145 @@ public class SettingsStoreTests
         File.WriteAllText(path, "{ isto nao e json");
         Assert.Null(new SettingsStore(path).Load().Profile);
     }
+
+    [Fact]
+    public void Alert_fields_round_trip()
+    {
+        var store = new SettingsStore(TempFile());
+        store.Save(new Settings(Profile: null, AlertCelsius: 85, AlertSeconds: 10, AutoCool: true));
+        Assert.Equal(new Settings(null, 85, 10, true), store.Load());
+    }
+
+    [Fact]
+    public void File_from_older_version_gets_alert_defaults()
+    {
+        var path = TempFile();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "Profile": "Frio" }""");
+        Assert.Equal(new Settings("Frio", 90, 30, false), new SettingsStore(path).Load());
+    }
+}
+
+public class TempAlertTests
+{
+    private static readonly DateTime T0 = new(2026, 1, 1, 12, 0, 0);
+
+    [Fact]
+    public void Fires_once_after_staying_above_limit()
+    {
+        var alert = new TempAlert(90, TimeSpan.FromSeconds(30));
+        Assert.False(alert.Check(95, T0));
+        Assert.False(alert.Check(95, T0.AddSeconds(29)));
+        Assert.True(alert.Check(95, T0.AddSeconds(30)));
+        Assert.False(alert.Check(95, T0.AddSeconds(60)));
+    }
+
+    [Fact]
+    public void Dip_below_limit_restarts_the_count()
+    {
+        var alert = new TempAlert(90, TimeSpan.FromSeconds(30));
+        alert.Check(95, T0);
+        alert.Check(90, T0.AddSeconds(20)); // igual ao limite não conta como "passou"
+        Assert.False(alert.Check(95, T0.AddSeconds(31)));
+        Assert.True(alert.Check(95, T0.AddSeconds(61)));
+    }
+
+    [Fact]
+    public void Rearms_only_after_cooling_5_degrees()
+    {
+        var alert = new TempAlert(90, TimeSpan.FromSeconds(30));
+        alert.Check(95, T0);
+        Assert.True(alert.Check(95, T0.AddSeconds(30)));
+
+        alert.Check(87, T0.AddSeconds(40)); // esfriou pouco: continua desarmado
+        alert.Check(95, T0.AddSeconds(50));
+        Assert.False(alert.Check(95, T0.AddSeconds(90)));
+
+        alert.Check(84, T0.AddSeconds(100)); // 6 °C abaixo: rearma
+        alert.Check(95, T0.AddSeconds(110));
+        Assert.True(alert.Check(95, T0.AddSeconds(140)));
+    }
+}
+
+public class StartupServiceTests
+{
+    [Fact]
+    public void Enable_and_disable_in_a_test_key()
+    {
+        string key = $@"Software\ThermoBookTests\{Guid.NewGuid()}";
+        var startup = new StartupService(key);
+        try
+        {
+            Assert.False(startup.IsEnabled);
+            startup.Set(true, @"C:\Apps\ThermoBook.exe");
+            Assert.True(startup.IsEnabled);
+            using (var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(key))
+                Assert.Equal("\"C:\\Apps\\ThermoBook.exe\" --bandeja", k!.GetValue("ThermoBook"));
+            startup.Set(false, @"C:\Apps\ThermoBook.exe");
+            Assert.False(startup.IsEnabled);
+            startup.Set(false, @"C:\Apps\ThermoBook.exe"); // desligar de novo não dá erro
+        }
+        finally
+        {
+            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\ThermoBookTests", throwOnMissingSubKey: false);
+        }
+    }
+}
+
+public class MainFormTests
+{
+    [Theory]
+    [InlineData(512.0 * 1024, "512 KB")]
+    [InlineData(1.5 * 1024 * 1024, "1,5 MB")]
+    [InlineData(31.94 * 1024 * 1024 * 1024, "31,9 GB")]
+    public void Formats_bytes(double bytes, string expected)
+    {
+        System.Globalization.CultureInfo.CurrentCulture = new("pt-BR");
+        Assert.Equal(expected, MainForm.Bytes(bytes));
+    }
+
+    [Theory]
+    [InlineData(true, true, -1, "Na tomada, carregando")]
+    [InlineData(true, false, -1, "Na tomada")]
+    [InlineData(false, false, 2 * 3600 + 5 * 60, "Na bateria, ~2h05 restantes")]
+    [InlineData(false, false, -1, "Na bateria")]
+    public void Battery_text(bool plugged, bool charging, int secondsLeft, string expected)
+    {
+        Assert.Equal(expected, MainForm.BatteryText(plugged, charging, secondsLeft));
+    }
+
+    [Theory]
+    [InlineData(60, "ok")]
+    [InlineData(75, "quente")]
+    [InlineData(90, "quente demais")]
+    public void Temp_state_uses_the_icon_thresholds(double celsius, string expected)
+    {
+        Assert.Equal(expected, MainForm.TempState(celsius));
+    }
+
+    [Fact]
+    public void Builds_and_takes_more_than_a_minute_of_readings()
+    {
+        using var form = new MainForm((_, _) => { }, openFan: null);
+        var s = new Snapshot(12, 2.1, 90, 5, 4, 1, 2e9, 8e9, 32e9, 3, 1e6, 2e6, 500e9, [55, 52]);
+        for (int i = 0; i < 70; i++) form.Push(s);
+        form.ShowPower(0, 100, syncControls: true);
+        form.ShowPower(7, 42, syncControls: true); // valores fora da lista e da faixa do TrackBar não quebram
+    }
+
+    [Fact]
+    public void Close_from_another_program_only_hides()
+    {
+        // Regressão: WM_CLOSE sem SC_CLOSE chega como TaskManagerClosing; o painel era descartado e o "abrir" seguinte derrubava o app.
+        using var form = new MainForm((_, _) => { }, openFan: null);
+        form.Show();
+        SendMessage(form.Handle, 0x0010 /* WM_CLOSE */, 0, 0);
+        Assert.False(form.IsDisposed);
+        Assert.False(form.Visible);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
 }
 
 public class TrayIconRendererTests
