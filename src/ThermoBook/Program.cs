@@ -11,10 +11,17 @@ static partial class Program
         if (args.Contains("--diagnostico")) return Diagnose();
 
         using var mutex = new Mutex(true, @"Local\ThermoBook", out bool createdNew);
-        if (!createdNew) return 0; // já está rodando na bandeja
+        using var openPanel = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\ThermoBook.AbrirPainel");
+        if (!createdNew)
+        {
+            // Já está na bandeja: pede para ela abrir o painel (ex.: atalho do Menu Iniciar clicado de novo).
+            AllowSetForegroundWindow(-1); // ASFW_ANY: deixa a outra instância trazer a janela para a frente
+            openPanel.Set();
+            return 0;
+        }
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new TrayApp(new SettingsStore(SettingsStore.DefaultPath)));
+        Application.Run(new TrayApp(new SettingsStore(SettingsStore.DefaultPath), openPanel, showPanel: !args.Contains("--bandeja")));
         return 0;
     }
 
@@ -40,4 +47,8 @@ static partial class Program
     [LibraryImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool AttachConsole(int processId);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AllowSetForegroundWindow(int processId);
 }
