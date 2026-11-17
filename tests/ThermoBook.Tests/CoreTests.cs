@@ -378,3 +378,65 @@ public class PowerServiceTests
     [Fact]
     public void Overlay_can_be_read() => _ = PowerService.GetOverlay();
 }
+
+public class PowerDiagnosticsTests
+{
+    private static readonly PowerMode Equilibrado = PowerService.ModeByName("Equilibrado")!;
+
+    // Valor que o modo grava em cada configuração da tabela de diagnóstico.
+    private static (uint, uint)? Esperado(PowerMode m, Guid setting)
+    {
+        var valores = new Dictionary<Guid, (uint, uint)>
+        {
+            [PowerService.ProcThrottleMin] = (m.CpuMinAc, m.CpuMinDc),
+            [PowerService.ProcThrottleMax] = (m.CpuMax, m.CpuMax),
+            [PowerService.PerfBoostMode] = (m.Turbo, m.Turbo),
+            [PowerService.PerfEpp] = (m.Epp, m.Epp),
+            [PowerService.CpMinCores] = (m.CoresMinAc, m.CoresMinDc),
+            [PowerService.DiskIdle] = (m.DiskIdleSeconds, m.DiskIdleSeconds),
+        };
+        return valores.TryGetValue(setting, out var v) ? v : null;
+    }
+
+    [Fact]
+    public void Valores_iguais_ao_modo_ficam_ok()
+    {
+        var rows = PowerDiagnostics.Rows(Equilibrado, (_, setting) => Esperado(Equilibrado, setting));
+        Assert.Equal(6, rows.Count);
+        Assert.All(rows, r => Assert.True(r.Ok));
+    }
+
+    [Fact]
+    public void Configuracao_ausente_fica_null_e_aparece_no_texto()
+    {
+        var rows = PowerDiagnostics.Rows(Equilibrado, (_, _) => null);
+        Assert.All(rows, r => Assert.Null(r.Ok));
+        Assert.Contains("ausente no hardware", PowerDiagnostics.Format(Equilibrado, rows, Equilibrado.Overlay));
+    }
+
+    [Fact]
+    public void So_a_linha_diferente_fica_marcada()
+    {
+        var rows = PowerDiagnostics.Rows(Equilibrado,
+            (_, setting) => setting == PowerService.ProcThrottleMax ? (0u, 0u) : Esperado(Equilibrado, setting));
+        var diferentes = rows.Where(r => r.Ok == false).ToList();
+        Assert.Single(diferentes);
+        Assert.Equal("CPU máxima (%)", diferentes[0].Name);
+        Assert.Equal(5, rows.Count(r => r.Ok == true));
+
+        var texto = PowerDiagnostics.Format(Equilibrado, rows, Equilibrado.Overlay);
+        Assert.Contains("DIFERENTE", texto);
+        Assert.Contains("DIFERENTE", texto.Split('\n').Single(l => l.StartsWith("CPU máxima")));
+    }
+
+    [Fact]
+    public void Overlay_diferente_e_marcado_e_igual_fica_ok()
+    {
+        var rows = PowerDiagnostics.Rows(Equilibrado, (_, setting) => Esperado(Equilibrado, setting));
+        Assert.Contains("(DIFERENTE)", PowerDiagnostics.Format(Equilibrado, rows, PowerService.OverlayMaxPerformance));
+
+        var igual = PowerDiagnostics.Format(Equilibrado, rows, Equilibrado.Overlay);
+        Assert.Contains("(ok)", igual);
+        Assert.DoesNotContain("(DIFERENTE)", igual);
+    }
+}

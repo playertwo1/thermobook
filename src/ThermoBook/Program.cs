@@ -40,8 +40,17 @@ static partial class Program
             GPU: {s.Gpu:N0}% | 3D {s.Gpu3D:N0}% | video {s.GpuVideo:N0}% | mem {s.GpuMem / 1e9:N2} GB
             RAM: {s.RamUsed / 1e9:N1} / {s.RamTotal / 1e9:N1} GB ({s.RamPercent:N0}%)
             Disco: {s.DiskActive:N0}% | ler {s.DiskRead / 1e6:N1} MB/s | gravar {s.DiskWrite / 1e6:N1} MB/s | C: livre {s.CFree / 1e9:N0} GB
-            Energia: turbo {turbo} ({PowerService.TurboNames.GetValueOrDefault(turbo, "?")}), limite {limit}% -> perfil {PowerService.Current()?.Name ?? "Personalizado"}
+            Energia: turbo {turbo} ({PowerService.TurboNames.GetValueOrDefault(turbo, "?")}), limite {limit}% -> modo {PowerService.Current()?.Name ?? "Personalizado"}
             """);
+        // Plano personalizado: compara com o modo salvo, que é o que o app reaplicaria.
+        var mode = PowerService.Current() ?? PowerService.ModeByName(new SettingsStore(SettingsStore.DefaultPath).Load().Profile);
+        Console.WriteLine();
+        if (mode is null) Console.WriteLine("Sem modo para comparar (plano personalizado e nenhum modo salvo).");
+        else
+        {
+            var rows = PowerDiagnostics.Rows(mode, PowerService.Read);
+            Console.WriteLine(PowerDiagnostics.Format(mode, rows, PowerService.GetOverlay()));
+        }
         return 0;
     }
 
