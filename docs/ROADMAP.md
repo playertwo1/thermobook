@@ -75,9 +75,11 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 7.3: `Current()` compara turbo, CPU mín/máx e EPP; o overlay ficou fora (fora do plano Equilibrado ele não pega e o modo nunca bateria). A reaplicação usa `GUID_ACTIVE_POWERSCHEME` em vez de `GUID_POWERSCHEME_PERSONALITY`, porque a personalidade só avisa quando o tipo do plano muda. Falta no notebook: trocar o modo nas Configurações do Windows e ver "Personalizado"; trocar de plano e ver o modo reaplicado.
 
 ### 7.4 Diagnóstico
-- [ ] `ThermoBook.exe --diagnostico` imprime todos os valores do modo atual lado a lado com o esperado.
+- [x] `ThermoBook.exe --diagnostico` imprime todos os valores do modo atual lado a lado com o esperado.
 
 **Pronto quando:** a saída bate com `powercfg /qh` no notebook de testes.
+
+> Feito no PR da 7.4: tabela atual x esperado (AC/DC) para CPU mín/máx, turbo, EPP, núcleos mínimos, disco ocioso e overlay, comparada ao modo atual (ou ao modo salvo, se o plano for Personalizado). Conferido contra `powercfg /q` numa máquina de desenvolvimento (CPU máxima 70/70 = 0x46). Falta no notebook de testes: conferir a saída completa com `powercfg /qh` depois de aplicar cada modo.
 
 ---
 
