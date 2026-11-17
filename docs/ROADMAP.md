@@ -37,12 +37,14 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 **Objetivo:** o app aplica qualquer configuração que o `Ativar_Segundo_Plano.bat` aplica, sem `powercfg` e sem administrador, e os perfis da v0.1 viram um catálogo único de 6 modos.
 
 ### 7.1 PowerService genérico
-- [ ] Trocar os dois GUIDs fixos por leitura/gravação de qualquer `(subgrupo, configuração)` em AC e DC: `Read(sub, setting)`, `Write(sub, setting, ac, dc)`.
-- [ ] Constantes para todos os GUIDs do `.bat`: `PROCTHROTTLEMIN`, `PROCTHROTTLEMAX`, `PERFBOOSTMODE`, `PERFEPP` (e `PERFEPP1` para núcleos de eficiência), `CPMINCORES`, `CPMAXCORES`, latência de estacionamento, limiares de aumento/redução, `DISKIDLE`, personalidade do plano.
-- [ ] Overlay do modo de energia do Windows: `PowerSetActiveOverlayScheme` / `PowerGetEffectiveOverlayScheme` via `LibraryImport` (hoje o `.bat` abre um PowerShell só para isso).
-- [ ] Configuração que não existe no hardware (ex.: `PERFEPP1` num CPU sem núcleos E) é ignorada, não derruba a aplicação do modo.
+- [x] Trocar os dois GUIDs fixos por leitura/gravação de qualquer `(subgrupo, configuração)` em AC e DC: `Read(sub, setting)`, `Write(sub, setting, ac, dc)`.
+- [x] Constantes para todos os GUIDs do `.bat`: `PROCTHROTTLEMIN`, `PROCTHROTTLEMAX`, `PERFBOOSTMODE`, `PERFEPP` (e `PERFEPP1` para núcleos de eficiência), `CPMINCORES`, `CPMAXCORES`, latência de estacionamento, limiares de aumento/redução, `DISKIDLE`, personalidade do plano.
+- [x] Overlay do modo de energia do Windows: `PowerSetActiveOverlayScheme` / `PowerGetEffectiveOverlayScheme` via `LibraryImport` (hoje o `.bat` abre um PowerShell só para isso).
+- [x] Configuração que não existe no hardware (ex.: `PERFEPP1` num CPU sem núcleos E) é ignorada, não derruba a aplicação do modo.
 
 **Pronto quando:** teste de ida e volta (`Write` → `Read`) passa para cada GUID na máquina de testes; erro de configuração inexistente não lança.
+
+> Feito no PR da 7.1: ida e volta automatizada (xUnit) e GUIDs conferidos contra `powercfg /qh` em uma máquina de desenvolvimento. Falta no notebook de testes: ida e volta com `powercfg /qh` mostrando o valor gravado e o overlay trocando de fato.
 
 ### 7.2 Catálogo de modos
 - [ ] `record Mode(Nome, Descrição, Overlay, valores AC/DC…)` substitui `PowerProfile`. Valores tirados do `.bat`:

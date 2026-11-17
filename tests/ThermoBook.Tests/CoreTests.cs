@@ -292,3 +292,57 @@ public class SensorServiceTests
         Assert.InRange(s.DiskActive, 0, 100);
     }
 }
+
+public class PowerServiceTests
+{
+    [Theory]
+    [InlineData(2u, true)]
+    [InlineData(0x57u, true)]
+    [InlineData(5u, false)] // acesso negado não é "ausente"
+    public void IsMissing_classifies_errors(uint err, bool expected) =>
+        Assert.Equal(expected, PowerService.IsMissing(err));
+
+    [Fact]
+    public void Missing_setting_is_ignored_without_throwing()
+    {
+        var bogus = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        Assert.Null(PowerService.Read(PowerService.SubProcessor, bogus));
+        Assert.False(PowerService.Write(PowerService.SubProcessor, bogus, 1, 1));
+    }
+
+    [Fact]
+    public void Write_then_Read_round_trips_and_restores()
+    {
+        var old = PowerService.Read(PowerService.SubProcessor, PowerService.ProcThrottleMax);
+        if (old is null) return; // máquina sem a configuração
+        try
+        {
+            Assert.True(PowerService.Write(PowerService.SubProcessor, PowerService.ProcThrottleMax, 77, 66));
+            Assert.Equal((77u, 66u), PowerService.Read(PowerService.SubProcessor, PowerService.ProcThrottleMax));
+        }
+        finally { PowerService.Write(PowerService.SubProcessor, PowerService.ProcThrottleMax, old.Value.Ac, old.Value.Dc); }
+    }
+
+    public static IEnumerable<object[]> AllSettings() =>
+    [
+        [PowerService.SubProcessor, PowerService.ProcThrottleMin], [PowerService.SubProcessor, PowerService.ProcThrottleMax],
+        [PowerService.SubProcessor, PowerService.PerfBoostMode], [PowerService.SubProcessor, PowerService.PerfEpp],
+        [PowerService.SubProcessor, PowerService.PerfEpp1], [PowerService.SubProcessor, PowerService.CpMinCores],
+        [PowerService.SubProcessor, PowerService.CpMaxCores], [PowerService.SubProcessor, PowerService.CpIncreaseTime],
+        [PowerService.SubProcessor, PowerService.CpDecreaseTime], [PowerService.SubProcessor, PowerService.PerfIncreaseThreshold],
+        [PowerService.SubProcessor, PowerService.PerfDecreaseThreshold], [PowerService.SubDisk, PowerService.DiskIdle],
+    ];
+
+    [Theory]
+    [MemberData(nameof(AllSettings))]
+    public void Each_guid_reads_and_rewrites_same_value(Guid sub, Guid setting)
+    {
+        var v = PowerService.Read(sub, setting);
+        if (v is null) return; // ausente neste hardware: ignorado
+        Assert.True(PowerService.Write(sub, setting, v.Value.Ac, v.Value.Dc));
+        Assert.Equal(v, PowerService.Read(sub, setting));
+    }
+
+    [Fact]
+    public void Overlay_can_be_read() => _ = PowerService.GetOverlay();
+}
