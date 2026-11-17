@@ -55,6 +55,8 @@ internal static partial class PowerService
     // Disco
     public static readonly Guid DiskIdle = new("6738e2c4-e8a5-4a42-b16a-e040e769756e");
     // Personalidade do plano (GUID_POWERSCHEME_PERSONALITY, usado na fase 7.3)
+    // GUID_ACTIVE_POWERSCHEME: avisa a cada troca de plano (a personalidade só avisa quando o tipo do plano muda)
+    public static readonly Guid ActivePowerScheme = new("31f9f286-5084-42fe-b720-2b0264993763");
     public static readonly Guid SchemePersonality = new("245d8541-3943-4422-b025-13a784f679b7");
     // Overlays do modo de energia do Windows
     public static readonly Guid OverlayBestEfficiency = new("961cc777-2547-4f9d-8174-7d86181b8a7a");
@@ -72,10 +74,15 @@ internal static partial class PowerService
     public static uint? GetEpp() => Read(SubProcessor, PerfEpp)?.Ac;
 
     /// <summary>Modo cujos valores batem com o plano ativo, ou null se for uma combinação personalizada.</summary>
-    public static PowerMode? Current() => Match(GetTurbo(), GetLimit(), GetEpp());
+    public static uint? GetCpuMin() => Read(SubProcessor, ProcThrottleMin)?.Ac;
 
-    public static PowerMode? Match(uint turbo, uint limit, uint? epp) =>
-        Modes.FirstOrDefault(m => m.Turbo == turbo && m.CpuMax == limit && m.Epp == epp);
+    /// <summary>Modo cujos valores batem com o plano ativo, ou null ("Personalizado").</summary>
+    public static PowerMode? Current() => Match(GetTurbo(), GetLimit(), GetEpp(), GetCpuMin());
+
+    // shortcut: o overlay não entra na comparação porque fora do plano Equilibrado ele não pega e o modo nunca bateria. Upgrade: comparar o overlay só quando o plano ativo for o Equilibrado.
+    /// <param name="cpuMin">null = não comparar (hardware sem a configuração).</param>
+    public static PowerMode? Match(uint turbo, uint limit, uint? epp, uint? cpuMin = null) =>
+        Modes.FirstOrDefault(m => m.Turbo == turbo && m.CpuMax == limit && m.Epp == epp && (cpuMin is null || m.CpuMinAc == cpuMin));
 
     /// <summary>Lê o valor em tomada (AC) e bateria (DC) no plano ativo; null se a configuração não existe.</summary>
     public static (uint Ac, uint Dc)? Read(Guid sub, Guid setting)
@@ -171,6 +178,24 @@ internal static partial class PowerService
 
     [LibraryImport("powrprof.dll")]
     private static partial uint PowerWriteDCValueIndex(IntPtr rootPowerKey, ref Guid scheme, ref Guid subGroup, ref Guid setting, uint value);
+
+    /// <summary>Pede WM_POWERBROADCAST/PBT_POWERSETTINGCHANGE na janela quando o plano ativo mudar.</summary>
+    public static IntPtr RegisterPlanChange(IntPtr hwnd)
+    {
+        var g = ActivePowerScheme;
+        return RegisterPowerSettingNotification(hwnd, ref g, 0 /* DEVICE_NOTIFY_WINDOW_HANDLE */);
+    }
+
+    public static Guid ActivePlan() => ActiveScheme();
+
+    public static void UnregisterPlanChange(IntPtr handle) => UnregisterPowerSettingNotification(handle);
+
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr RegisterPowerSettingNotification(IntPtr recipient, ref Guid setting, int flags);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool UnregisterPowerSettingNotification(IntPtr handle);
 
     [LibraryImport("kernel32.dll")]
     private static partial IntPtr LocalFree(IntPtr mem);

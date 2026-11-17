@@ -67,10 +67,12 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 7.2: migração testada (4 nomes + null). Falta no notebook: aplicar cada modo e conferir com `powercfg /qh`. Latência e limiares de estacionamento do `.bat` não foram incluídos (valores não estão no repositório).
 
 ### 7.3 Detecção e reaplicação
-- [ ] `Current()` compara só as configurações que definem o modo (turbo, limites, EPP, overlay); combinação desconhecida = "Personalizado".
-- [ ] Reaplicar o modo salvo ao iniciar e quando o plano ativo mudar (`RegisterPowerSettingNotification` com `GUID_POWERSCHEME_PERSONALITY`, em vez de checar a cada leitura).
+- [x] `Current()` compara só as configurações que definem o modo (turbo, limites, EPP, overlay); combinação desconhecida = "Personalizado".
+- [x] Reaplicar o modo salvo ao iniciar e quando o plano ativo mudar (`RegisterPowerSettingNotification` com `GUID_POWERSCHEME_PERSONALITY`, em vez de checar a cada leitura).
 
 **Pronto quando:** trocar o modo no app de Configurações do Windows faz o ThermoBook mostrar "Personalizado"; trocar de plano de energia faz ele reaplicar o modo salvo.
+
+> Feito no PR da 7.3: `Current()` compara turbo, CPU mín/máx e EPP; o overlay ficou fora (fora do plano Equilibrado ele não pega e o modo nunca bateria). A reaplicação usa `GUID_ACTIVE_POWERSCHEME` em vez de `GUID_POWERSCHEME_PERSONALITY`, porque a personalidade só avisa quando o tipo do plano muda. Falta no notebook: trocar o modo nas Configurações do Windows e ver "Personalizado"; trocar de plano e ver o modo reaplicado.
 
 ### 7.4 Diagnóstico
 - [ ] `ThermoBook.exe --diagnostico` imprime todos os valores do modo atual lado a lado com o esperado.

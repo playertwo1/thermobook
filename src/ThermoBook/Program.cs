@@ -40,7 +40,7 @@ static partial class Program
             GPU: {s.Gpu:N0}% | 3D {s.Gpu3D:N0}% | video {s.GpuVideo:N0}% | mem {s.GpuMem / 1e9:N2} GB
             RAM: {s.RamUsed / 1e9:N1} / {s.RamTotal / 1e9:N1} GB ({s.RamPercent:N0}%)
             Disco: {s.DiskActive:N0}% | ler {s.DiskRead / 1e6:N1} MB/s | gravar {s.DiskWrite / 1e6:N1} MB/s | C: livre {s.CFree / 1e9:N0} GB
-            Energia: turbo {turbo} ({PowerService.TurboNames.GetValueOrDefault(turbo, "?")}), limite {limit}% -> perfil {PowerService.Current()?.Name ?? "personalizado"}
+            Energia: turbo {turbo} ({PowerService.TurboNames.GetValueOrDefault(turbo, "?")}), limite {limit}% -> perfil {PowerService.Current()?.Name ?? "Personalizado"}
             """);
         return 0;
     }
