@@ -19,6 +19,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ContextMenuStrip _menu = new();
     private readonly ToolStripMenuItem _status;
     private readonly Dictionary<PowerMode, ToolStripMenuItem> _profileItems = [];
+    private readonly PlanWatcher _planWatcher;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 1000 };
     private Icon _icon;
     private double? _shownTemp;
@@ -88,6 +89,7 @@ internal sealed class TrayApp : ApplicationContext
         };
 
         ReapplySavedProfile();
+        _planWatcher = new PlanWatcher(OnPlanChanged);
         RefreshPowerState(syncControls: true);
         _timer.Tick += (_, _) => OnTick();
         _timer.Start();
@@ -104,6 +106,13 @@ internal sealed class TrayApp : ApplicationContext
         _panel.Show();
         if (_panel.WindowState == FormWindowState.Minimized) _panel.WindowState = FormWindowState.Normal;
         _panel.Activate();
+    }
+
+    /// <summary>Outro programa trocou o plano de energia: o modo salvo é gravado no plano novo.</summary>
+    private void OnPlanChanged()
+    {
+        ReapplySavedProfile();
+        RefreshPowerState(syncControls: true);
     }
 
     private void ReapplySavedProfile()
@@ -151,7 +160,7 @@ internal sealed class TrayApp : ApplicationContext
             uint turbo = PowerService.GetTurbo(), limit = PowerService.GetLimit();
             var current = PowerService.Current();
             foreach (var (p, item) in _profileItems) item.Checked = p == current;
-            _profileLabel = current?.Name ?? $"personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, {limit}%)";
+            _profileLabel = current?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, {limit}%)";
             _turbo = turbo;
             _panel.ShowPower(turbo, limit, current, syncControls);
         }
@@ -165,7 +174,7 @@ internal sealed class TrayApp : ApplicationContext
 
     private void OnTick()
     {
-        // Outro programa (ou o app da Samsung) pode trocar o plano: confere a cada 5 s.
+        // Só atualiza o que é mostrado (ex.: modo trocado nas Configurações do Windows vira "Personalizado"); a reaplicação vem do PlanWatcher.
         if (++_ticks % 5 == 0) RefreshPowerState();
         UpdateIcon(force: false);
 
@@ -220,6 +229,7 @@ internal sealed class TrayApp : ApplicationContext
     protected override void ExitThreadCore()
     {
         _timer.Stop();
+        _planWatcher.Dispose();
         _openPanelWait.Unregister(null);
         _tray.Visible = false;
         _tray.Dispose();
@@ -227,5 +237,38 @@ internal sealed class TrayApp : ApplicationContext
         _sensors.Dispose();
         _icon.Dispose();
         base.ExitThreadCore();
+    }
+
+    /// <summary>Janela invisível que recebe o aviso de troca do plano de energia ativo.</summary>
+    private sealed class PlanWatcher : NativeWindow, IDisposable
+    {
+        private const int WM_POWERBROADCAST = 0x218, PBT_POWERSETTINGCHANGE = 0x8013;
+        private readonly Action _onChange;
+        private readonly IntPtr _registration;
+        private Guid _plan = PowerService.ActivePlan();
+
+        public PlanWatcher(Action onChange)
+        {
+            _onChange = onChange;
+            CreateHandle(new CreateParams());
+            _registration = PowerService.RegisterPlanChange(Handle);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_POWERBROADCAST && (int)m.WParam == PBT_POWERSETTINGCHANGE)
+            {
+                // Só reage a troca de plano de verdade: o aviso também chega ao registrar e quando o próprio app reativa o plano (Commit), o que daria laço.
+                var plan = PowerService.ActivePlan();
+                if (plan != _plan) { _plan = plan; _onChange(); }
+            }
+            base.WndProc(ref m);
+        }
+
+        public void Dispose()
+        {
+            if (_registration != IntPtr.Zero) PowerService.UnregisterPlanChange(_registration);
+            DestroyHandle();
+        }
     }
 }

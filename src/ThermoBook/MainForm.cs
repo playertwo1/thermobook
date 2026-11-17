@@ -153,7 +153,7 @@ internal sealed partial class MainForm : Form
     {
         foreach (var (p, b) in _profileButtons) b.FlatAppearance.BorderSize = p == current ? 3 : 1;
         _current.Text = $"Ativo agora: turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, limite {limit}%"
-            + (current is null ? "" : $" ({current.Name})");
+            + $" ({current?.Name ?? "Personalizado"})";
         if (!syncControls) return;
         _turbo.SelectedIndex = Array.IndexOf(TurboOrder, turbo);
         _limit.Value = (int)Math.Clamp(limit, 50, 100);

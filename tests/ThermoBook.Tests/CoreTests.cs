@@ -79,6 +79,27 @@ public class PowerModeTests
     {
         Assert.Null(PowerService.Match(2, 100, null));
     }
+
+    [Fact]
+    public void Cada_modo_casa_tambem_com_a_CPU_minima()
+    {
+        foreach (var m in PowerService.Modes)
+            Assert.Same(m, PowerService.Match(m.Turbo, m.CpuMax, m.Epp, m.CpuMinAc));
+    }
+
+    [Fact]
+    public void Alto_nao_casa_quando_CPU_minima_e_5()
+    {
+        var alto = PowerService.ModeByName("Alto")!;
+        Assert.Null(PowerService.Match(alto.Turbo, alto.CpuMax, alto.Epp, 5));
+    }
+
+    [Fact]
+    public void EPP_diferente_vira_Personalizado()
+    {
+        Assert.Equal("Equilibrado", PowerService.Match(1, 100, 50, 5)?.Name);
+        Assert.Null(PowerService.Match(1, 100, 51, 5));
+    }
 }
 
 public class SettingsStoreTests
