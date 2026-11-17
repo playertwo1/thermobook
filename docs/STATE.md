@@ -1,0 +1,53 @@
+# Estado atual
+
+> Atualize este arquivo no mesmo PR de cada subfase concluída. Mantenha curto: o histórico fica no git.
+
+**Atualizado em:** 2026-11-17
+**Versão publicada:** v0.1.0 (fases 0–6)
+**Em andamento:** nada — roadmap da v0.2 recém-escrito
+**Próxima subfase:** [7.1 PowerService genérico](ROADMAP.md#71-powerservice-genérico) (e, em paralelo se houver outro agente, [9.1 Janela base da pílula](ROADMAP.md#91-janela-base))
+
+## Progresso da v0.2
+
+| Fase | Status |
+|---|---|
+| 7 Motor de energia e modos | ⬜ não iniciada |
+| 8 Segundo plano e desligar tela | ⬜ não iniciada |
+| 9 Pílula flutuante | ⬜ não iniciada |
+| 10 Painel rápido e flyout | ⬜ não iniciada |
+| 11 Ferramentas com administrador | ⬜ não iniciada |
+| 12 Painel em abas, instalador, release | ⬜ não iniciada |
+
+Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ no `main` · ⚠️ no `main` mas falta verificar no notebook
+
+## Decisões tomadas (v0.2)
+
+| # | Decisão | Por quê |
+|---|---|---|
+| D1 | Pílula feita em WinForms, no mesmo processo | Sem dependência nova; o app já é WinForms e o `Snapshot` já existe. |
+| D2 | Catálogo de 6 modos: Economia, Frio, Eficiência, Equilibrado, Alto, Máximo | Junta as 5 opções do `.bat` com o perfil Frio, que é o que mais esfria. Silencioso → Economia e Normal → Eficiência na migração. |
+| D3 | Modos aplicados no **plano ativo**, não num GUID fixo | O `.bat` usa `859668fb-…`, que só existe nesta máquina. |
+| D4 | Segundo plano restaura o **snapshot** do que havia antes, não um padrão fixo | O `Restaurar_Plano_Padrao.bat` força o plano Equilibrado e "suspender", o que pode não ser o que o usuário tinha. |
+| D5 | Limpeza/otimização num processo elevado separado, com lista fechada de tarefas | O app principal nunca roda como administrador. |
+| D6 | Esvaziar Lixeira e remover apps desmarcados por padrão | Não têm volta. |
+
+## Decisões em aberto
+
+Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a proposta.
+
+| # | Pergunta | Proposta | Antes de |
+|---|---|---|---|
+| A1 | Os valores do modo **Frio** (além do turbo desligado) | Iguais ao Equilibrado | 7.2 |
+| A2 | Atalho global para desligar a tela | `Ctrl+Alt+Shift+D` | 8.2 |
+| A3 | Posição inicial da pílula | Borda direita, centro vertical, monitor principal | 9.3 |
+| A4 | Mostrar a pílula logo na primeira execução | Sim | 9.4 |
+
+## Riscos ativos
+
+- **GPU Intel Arc sem temperatura** sem driver de kernel: a pílula mostra só uso. Aceito.
+- **Overlay do modo de energia** só funciona com o plano Equilibrado ativo. Fora dele, os valores do processador são gravados direto e o overlay é ignorado.
+- **Verificação real exige o notebook** (tampa, UAC, `powercfg /qh`): CI só cobre build e testes.
+
+## Notas da última sessão
+
+- Criados `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `PRODUCT.md`, `DESIGN.md`, `docs/ROADMAP.md`, `docs/INDEX.md` e este arquivo. Nenhum código mudou.
