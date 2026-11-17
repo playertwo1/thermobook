@@ -45,12 +45,12 @@ static partial class Program
         return 0;
     }
 
-    /// <summary>Volta ao perfil Normal (padrão de fábrica). Usado pelo desinstalador.</summary>
+    /// <summary>Volta ao modo Eficiência (padrão de fábrica). Usado pelo desinstalador.</summary>
     private static int Restore()
     {
         try
         {
-            PowerService.Apply(PowerService.Profiles.First(p => p.Name == "Normal"));
+            PowerService.Apply(PowerService.ModeByName("Eficiência")!);
             return 0;
         }
         catch { return 1; } // sem janela de erro no meio da desinstalação

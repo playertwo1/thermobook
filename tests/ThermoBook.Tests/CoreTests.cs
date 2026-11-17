@@ -44,29 +44,40 @@ public class GpuAggregatorTests
     }
 }
 
-public class PowerProfileTests
+public class PowerModeTests
 {
     [Theory]
-    [InlineData(0u, 100u, "Frio")]
-    [InlineData(0u, 80u, "Silencioso")]
-    [InlineData(3u, 100u, "Normal")]
-    [InlineData(2u, 100u, "Máximo")]
-    public void Matches_known_profiles(uint turbo, uint limit, string name)
+    [InlineData("Silencioso", "Economia")]
+    [InlineData("Normal", "Eficiência")]
+    [InlineData("Frio", "Frio")]
+    [InlineData("Máximo", "Máximo")]
+    [InlineData(null, null)]
+    public void ModeByName_migra_nomes_antigos(string? name, string? expected)
     {
-        Assert.Equal(name, PowerService.Match(turbo, limit)?.Name);
+        Assert.Equal(expected, PowerService.ModeByName(name)?.Name);
     }
 
     [Fact]
-    public void Custom_combination_has_no_profile()
+    public void Catalogo_tem_os_6_modos_na_ordem()
     {
-        Assert.Null(PowerService.Match(1, 90));
+        Assert.Equal(
+            new[] { "Economia", "Frio", "Eficiência", "Equilibrado", "Alto", "Máximo" },
+            PowerService.Modes.Select(m => m.Name));
     }
 
     [Fact]
-    public void Profiles_are_unique()
+    public void Cada_modo_tem_combinacao_propria_e_Match_devolve_ele_mesmo()
     {
-        var keys = PowerService.Profiles.Select(p => (p.Turbo, p.Limit)).ToList();
+        var keys = PowerService.Modes.Select(m => (m.Turbo, m.CpuMax, m.Epp)).ToList();
         Assert.Equal(keys.Count, keys.Distinct().Count());
+        foreach (var m in PowerService.Modes)
+            Assert.Same(m, PowerService.Match(m.Turbo, m.CpuMax, m.Epp));
+    }
+
+    [Fact]
+    public void Combinacao_sem_modo_nao_casa()
+    {
+        Assert.Null(PowerService.Match(2, 100, null));
     }
 }
 
@@ -215,18 +226,18 @@ public class MainFormTests
     [Fact]
     public void Builds_and_takes_more_than_a_minute_of_readings()
     {
-        using var form = new MainForm((_, _) => { }, openFan: null);
+        using var form = new MainForm(_ => { }, (_, _) => { }, openFan: null);
         var s = new Snapshot(12, 2.1, 90, 5, 4, 1, 2e9, 8e9, 32e9, 3, 1e6, 2e6, 500e9, [55, 52]);
         for (int i = 0; i < 70; i++) form.Push(s);
-        form.ShowPower(0, 100, syncControls: true);
-        form.ShowPower(7, 42, syncControls: true); // valores fora da lista e da faixa do TrackBar não quebram
+        form.ShowPower(0, 100, current: null, syncControls: true);
+        form.ShowPower(7, 42, current: null, syncControls: true); // valores fora da lista e da faixa do TrackBar não quebram
     }
 
     [Fact]
     public void Close_from_another_program_only_hides()
     {
         // Regressão: WM_CLOSE sem SC_CLOSE chega como TaskManagerClosing; o painel era descartado e o "abrir" seguinte derrubava o app.
-        using var form = new MainForm((_, _) => { }, openFan: null);
+        using var form = new MainForm(_ => { }, (_, _) => { }, openFan: null);
         form.Show();
         SendMessage(form.Handle, 0x0010 /* WM_CLOSE */, 0, 0);
         Assert.False(form.IsDisposed);

@@ -13,18 +13,18 @@ internal sealed partial class MainForm : Form
     private static readonly Color Fg = Color.FromArgb(236, 236, 240), Dim = Color.FromArgb(160, 160, 170);
     private static readonly Color Blue = Color.FromArgb(64, 156, 255), Green = Color.FromArgb(80, 200, 120), Purple = Color.FromArgb(180, 130, 255),
         Teal = Color.FromArgb(60, 200, 200), Orange = Color.FromArgb(255, 160, 60), Red = Color.FromArgb(255, 85, 85), Yellow = Color.FromArgb(240, 200, 60);
-    private static readonly Color[] ProfileColors = [Blue, Purple, Green, Red]; // na ordem de PowerService.Profiles
+    private static readonly Color[] ProfileColors = [Blue, Teal, Purple, Green, Orange, Red]; // na ordem de PowerService.Modes
     private static readonly uint[] TurboOrder = [0, 3, 1, 2, 4];
 
     private readonly Card _temp = new("Temperatura", Green, 30, 100), _cpu = new("Processador", Blue), _gpu = new("GPU Intel Arc", Green),
         _ram = new("Memória RAM", Purple), _disk = new("Disco (SSD)", Teal), _bat = new("Bateria", Yellow);
-    private readonly Dictionary<PowerProfile, Button> _profileButtons = [];
+    private readonly Dictionary<PowerMode, Button> _profileButtons = [];
     private readonly ComboBox _turbo;
     private readonly TrackBar _limit;
     private readonly Label _current, _status;
 
     /// <param name="openFan">null quando o app Configurações Samsung não está instalado.</param>
-    public MainForm(Action<uint, uint> applyPower, Action? openFan)
+    public MainForm(Action<PowerMode> applyMode, Action<uint, uint> applyPower, Action? openFan)
     {
         SuspendLayout();
         // Tamanhos em pixels de 96 DPI; o WinForms escala para o DPI do monitor (PerMonitorV2 no csproj).
@@ -46,12 +46,12 @@ internal sealed partial class MainForm : Form
 
         var tip = new ToolTip();
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 6, 10, 6), BackColor = BarBg };
-        top.Controls.Add(Lbl("Perfis:"));
-        for (int i = 0; i < PowerService.Profiles.Length; i++)
+        top.Controls.Add(Lbl("Modos:"));
+        for (int i = 0; i < PowerService.Modes.Length; i++)
         {
-            var p = PowerService.Profiles[i];
-            var b = Btn(p.Name, ProfileColors[i], 104);
-            b.Click += (_, _) => applyPower(p.Turbo, p.Limit);
+            var p = PowerService.Modes[i];
+            var b = Btn(p.Name, ProfileColors[i], 100);
+            b.Click += (_, _) => applyMode(p);
             tip.SetToolTip(b, p.Description);
             _profileButtons[p] = b;
             top.Controls.Add(b);
@@ -149,9 +149,8 @@ internal sealed partial class MainForm : Form
     }
 
     /// <param name="syncControls">false durante a leitura periódica, para não desfazer o que o usuário está escolhendo.</param>
-    public void ShowPower(uint turbo, uint limit, bool syncControls)
+    public void ShowPower(uint turbo, uint limit, PowerMode? current, bool syncControls)
     {
-        var current = PowerService.Match(turbo, limit);
         foreach (var (p, b) in _profileButtons) b.FlatAppearance.BorderSize = p == current ? 3 : 1;
         _current.Text = $"Ativo agora: turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, limite {limit}%"
             + (current is null ? "" : $" ({current.Name})");
