@@ -18,7 +18,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly NotifyIcon _tray;
     private readonly ContextMenuStrip _menu = new();
     private readonly ToolStripMenuItem _status;
-    private readonly Dictionary<PowerProfile, ToolStripMenuItem> _profileItems = [];
+    private readonly Dictionary<PowerMode, ToolStripMenuItem> _profileItems = [];
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 1000 };
     private Icon _icon;
     private double? _shownTemp;
@@ -36,7 +36,7 @@ internal sealed class TrayApp : ApplicationContext
         Action? openFan = Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Packages", SamsungSettingsPackage))
             ? () => Process.Start("explorer.exe", $@"shell:AppsFolder\{SamsungSettingsPackage}!App")
             : null;
-        _panel = new MainForm((turbo, limit) => ApplyPower(turbo, limit), openFan);
+        _panel = new MainForm(m => ApplyMode(m), (turbo, limit) => ApplyPower(turbo, limit), openFan);
         _ = _panel.Handle; // cria a janela (escondida) para o BeginInvoke do sinal de outra instância
         _openPanelWait = ThreadPool.RegisterWaitForSingleObject(openPanelSignal,
             (_, _) => _panel.BeginInvoke(new Action(ShowPanel)), null, Timeout.Infinite, executeOnlyOnce: false);
@@ -46,9 +46,9 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Abrir painel", null, (_, _) => ShowPanel()) { Font = new Font(_menu.Font, FontStyle.Bold) });
         _menu.Items.Add(new ToolStripSeparator());
-        foreach (var p in PowerService.Profiles)
+        foreach (var p in PowerService.Modes)
         {
-            var item = new ToolStripMenuItem(p.Name, null, (_, _) => ApplyPower(p.Turbo, p.Limit)) { ToolTipText = p.Description };
+            var item = new ToolStripMenuItem(p.Name, null, (_, _) => ApplyMode(p)) { ToolTipText = p.Description };
             _profileItems[p] = item;
             _menu.Items.Add(item);
         }
@@ -84,7 +84,7 @@ internal sealed class TrayApp : ApplicationContext
         };
         _tray.BalloonTipClicked += (_, _) =>
         {
-            if (_alertBalloonShown) ApplyPower(Cold.Turbo, Cold.Limit);
+            if (_alertBalloonShown) ApplyMode(Cold);
         };
 
         ReapplySavedProfile();
@@ -96,7 +96,7 @@ internal sealed class TrayApp : ApplicationContext
 
     private static int IconSize => SystemInformation.SmallIconSize.Width;
 
-    private static PowerProfile Cold => PowerService.Profiles.First(p => p.Name == "Frio");
+    private static PowerMode Cold => PowerService.ModeByName("Frio")!;
 
     private void ShowPanel()
     {
@@ -108,24 +108,28 @@ internal sealed class TrayApp : ApplicationContext
 
     private void ReapplySavedProfile()
     {
-        var saved = PowerService.Profiles.FirstOrDefault(p => p.Name == _settings.Profile);
+        var saved = PowerService.ModeByName(_settings.Profile);
         if (saved is null || PowerService.Current() == saved) return;
         try { PowerService.Apply(saved); }
         catch (Exception ex) { ShowError($"Não consegui reaplicar o perfil {saved.Name}: {ex.Message}"); }
     }
 
-    private bool ApplyPower(uint turbo, uint limit)
+    private bool ApplyMode(PowerMode mode) => Apply(mode.Name, () => PowerService.Apply(mode), mode.Name);
+
+    /// <summary>Combinação personalizada (painel): não é reaplicada ao iniciar.</summary>
+    private bool ApplyPower(uint turbo, uint limit) => Apply("personalizado", () => PowerService.Apply(turbo, limit), null);
+
+    private bool Apply(string label, Action apply, string? saveAs)
     {
-        var profile = PowerService.Match(turbo, limit);
         bool ok = true;
         try
         {
-            PowerService.Apply(turbo, limit);
-            SaveSettings(_settings with { Profile = profile?.Name }); // personalizado: não é reaplicado ao iniciar
+            apply();
+            SaveSettings(_settings with { Profile = saveAs });
         }
         catch (Exception ex)
         {
-            ShowError($"Não consegui aplicar o perfil {profile?.Name ?? "personalizado"}: {ex.Message}");
+            ShowError($"Não consegui aplicar o modo {label}: {ex.Message}");
             ok = false;
         }
         RefreshPowerState(syncControls: true);
@@ -145,11 +149,11 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             uint turbo = PowerService.GetTurbo(), limit = PowerService.GetLimit();
-            var current = PowerService.Match(turbo, limit);
+            var current = PowerService.Current();
             foreach (var (p, item) in _profileItems) item.Checked = p == current;
             _profileLabel = current?.Name ?? $"personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, {limit}%)";
             _turbo = turbo;
-            _panel.ShowPower(turbo, limit, syncControls);
+            _panel.ShowPower(turbo, limit, current, syncControls);
         }
         catch (Exception ex)
         {
@@ -176,7 +180,7 @@ internal sealed class TrayApp : ApplicationContext
         string text = $"Está em {celsius:0} °C há mais de {_settings.AlertSeconds} s.";
         bool turboOn = _turbo is > 0; // Frio e Silencioso já estão com o turbo desligado
         _alertBalloonShown = false;
-        if (turboOn && _settings.AutoCool && ApplyPower(Cold.Turbo, Cold.Limit))
+        if (turboOn && _settings.AutoCool && ApplyMode(Cold))
             text += " Troquei para o perfil Frio.";
         else if (turboOn)
         {

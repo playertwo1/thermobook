@@ -2,21 +2,35 @@ using System.Runtime.InteropServices;
 
 namespace ThermoBook.Services;
 
-internal sealed record PowerProfile(string Name, uint Turbo, uint Limit, string Description);
+/// <summary>Modo de energia do catálogo. Valores tirados do Ativar_Segundo_Plano.bat (ROADMAP 7.2).</summary>
+/// <param name="DiskIdleSeconds">0 = nunca desligar o disco.</param>
+internal sealed record PowerMode(string Name, string Description, Guid Overlay,
+    uint CpuMinAc, uint CpuMinDc, uint CpuMax, uint Turbo, uint Epp, uint CoresMinAc, uint CoresMinDc, uint DiskIdleSeconds);
 
 /// <summary>
-/// Lê e grava o Turbo Boost e o limite da CPU no plano de energia ativo (tomada e bateria),
+/// Lê e grava configurações do plano de energia ativo (tomada e bateria) e aplica o catálogo de modos,
 /// pela mesma API que o powercfg usa. Não precisa de administrador.
 /// </summary>
 internal static partial class PowerService
 {
-    public static readonly PowerProfile[] Profiles =
+    // Frio = Equilibrado com turbo desligado (ROADMAP A1).
+    public static readonly PowerMode[] Modes =
     [
-        new("Frio", 0, 100, "Turbo desligado. Bem mais frio, quase sem perda no dia a dia."),
-        new("Silencioso", 0, 80, "Turbo desligado e CPU limitada a 80%. O mais frio e silencioso."),
-        new("Normal", 3, 100, "Padrão de fábrica: turbo em modo eficiência."),
-        new("Máximo", 2, 100, "Turbo agressivo: mais desempenho, mais calor."),
+        new("Economia", "Mais frio e econômico: CPU limitada a 70%, turbo desligado.", OverlayBestEfficiency, 5, 5, 70, 0, 80, 25, 25, 300),
+        new("Frio", "Turbo desligado. Bem mais frio, quase sem perda no dia a dia.", OverlayBalanced, 5, 5, 100, 0, 50, 75, 25, 900),
+        new("Eficiência", "Padrão de fábrica: turbo em modo eficiência.", OverlayBestEfficiency, 5, 5, 100, 3, 50, 25, 25, 600),
+        new("Equilibrado", "Turbo ligado, equilíbrio entre desempenho e temperatura.", OverlayBalanced, 5, 5, 100, 1, 50, 75, 25, 900),
+        new("Alto", "Turbo agressivo e mais desempenho. Esquenta mais.", OverlayBestPerformance, 100, 50, 100, 2, 25, 100, 75, 0),
+        new("Máximo", "Desempenho máximo, sem economia. O mais quente.", OverlayMaxPerformance, 100, 100, 100, 2, 0, 100, 100, 0),
     ];
+
+    /// <summary>Modo pelo nome salvo; aceita os nomes da v0.1 (Silencioso → Economia, Normal → Eficiência).</summary>
+    public static PowerMode? ModeByName(string? name) => name switch
+    {
+        "Silencioso" => ModeByName("Economia"),
+        "Normal" => ModeByName("Eficiência"),
+        _ => Modes.FirstOrDefault(m => m.Name == name),
+    };
 
     public static readonly Dictionary<uint, string> TurboNames = new()
     {
@@ -55,6 +69,13 @@ internal static partial class PowerService
 
     public static uint GetTurbo() => Read(SubProcessor, PerfBoostMode)?.Ac ?? 0;
     public static uint GetLimit() => Read(SubProcessor, ProcThrottleMax)?.Ac ?? 100;
+    public static uint? GetEpp() => Read(SubProcessor, PerfEpp)?.Ac;
+
+    /// <summary>Modo cujos valores batem com o plano ativo, ou null se for uma combinação personalizada.</summary>
+    public static PowerMode? Current() => Match(GetTurbo(), GetLimit(), GetEpp());
+
+    public static PowerMode? Match(uint turbo, uint limit, uint? epp) =>
+        Modes.FirstOrDefault(m => m.Turbo == turbo && m.CpuMax == limit && m.Epp == epp);
 
     /// <summary>Lê o valor em tomada (AC) e bateria (DC) no plano ativo; null se a configuração não existe.</summary>
     public static (uint Ac, uint Dc)? Read(Guid sub, Guid setting)
@@ -93,11 +114,7 @@ internal static partial class PowerService
 
     public static void SetOverlay(Guid overlay) => Check(PowerSetActiveOverlayScheme(overlay));
 
-    public static PowerProfile? Current() => Match(GetTurbo(), GetLimit());
-
-    public static PowerProfile? Match(uint turbo, uint limit) =>
-        Profiles.FirstOrDefault(p => p.Turbo == turbo && p.Limit == limit);
-
+    /// <summary>Aplica só turbo e limite (combinação personalizada do painel).</summary>
     public static void Apply(uint turbo, uint limit)
     {
         Write(SubProcessor, PerfBoostMode, turbo, turbo);
@@ -105,7 +122,19 @@ internal static partial class PowerService
         Commit();
     }
 
-    public static void Apply(PowerProfile p) => Apply(p.Turbo, p.Limit);
+    /// <summary>Aplica um modo inteiro. Configuração que não existe neste hardware é pulada (Write devolve false).</summary>
+    public static void Apply(PowerMode m)
+    {
+        // shortcut: o overlay só pega com o plano Equilibrado ativo (RISCO no STATE.md); fora dele os valores abaixo valem mesmo assim. Upgrade: avisar na bandeja.
+        try { SetOverlay(m.Overlay); } catch (System.ComponentModel.Win32Exception) { }
+        Write(SubProcessor, CpMinCores, m.CoresMinAc, m.CoresMinDc);
+        Write(SubProcessor, ProcThrottleMin, m.CpuMinAc, m.CpuMinDc);
+        Write(SubProcessor, ProcThrottleMax, m.CpuMax, m.CpuMax);
+        Write(SubProcessor, PerfBoostMode, m.Turbo, m.Turbo);
+        Write(SubProcessor, PerfEpp, m.Epp, m.Epp);
+        Write(SubDisk, DiskIdle, m.DiskIdleSeconds, m.DiskIdleSeconds);
+        Commit();
+    }
 
     private static Guid ActiveScheme()
     {

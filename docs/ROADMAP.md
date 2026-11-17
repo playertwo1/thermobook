@@ -47,7 +47,7 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 7.1: ida e volta automatizada (xUnit) e GUIDs conferidos contra `powercfg /qh` em uma máquina de desenvolvimento. Falta no notebook de testes: ida e volta com `powercfg /qh` mostrando o valor gravado e o overlay trocando de fato.
 
 ### 7.2 Catálogo de modos
-- [ ] `record Mode(Nome, Descrição, Overlay, valores AC/DC…)` substitui `PowerProfile`. Valores tirados do `.bat`:
+- [x] `record Mode(Nome, Descrição, Overlay, valores AC/DC…)` substitui `PowerProfile`. Valores tirados do `.bat`:
 
 | Modo | Overlay | CPU mín AC/DC | CPU máx | Turbo | EPP | Núcleos mín AC/DC | Disco ocioso |
 |---|---|---|---|---|---|---|---|
@@ -59,10 +59,12 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 | Máximo | máximo desempenho | 100/100 | 100 | 2 agressivo | 0 | 100/100 | nunca |
 
   (Frio = Equilibrado com turbo desligado: é o perfil que baixou 83–86 °C para 54–57 °C na v0.1. Latência e limiares de estacionamento seguem o `.bat` de cada modo.)
-- [ ] Migração do `settings.json`: `Silencioso → Economia`, `Normal → Eficiência`, `Frio` e `Máximo` mantêm o nome.
-- [ ] Menu da bandeja passa a listar os 6 modos.
+- [x] Migração do `settings.json`: `Silencioso → Economia`, `Normal → Eficiência`, `Frio` e `Máximo` mantêm o nome.
+- [x] Menu da bandeja passa a listar os 6 modos.
 
 **Pronto quando:** teste de migração cobre os 4 nomes antigos e `null`; aplicar cada modo e conferir com `powercfg /qh` bate com a tabela.
+
+> Feito no PR da 7.2: migração testada (4 nomes + null). Falta no notebook: aplicar cada modo e conferir com `powercfg /qh`. Latência e limiares de estacionamento do `.bat` não foram incluídos (valores não estão no repositório).
 
 ### 7.3 Detecção e reaplicação
 - [ ] `Current()` compara só as configurações que definem o modo (turbo, limites, EPP, overlay); combinação desconhecida = "Personalizado".

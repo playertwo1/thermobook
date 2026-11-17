@@ -4,14 +4,14 @@
 
 **Atualizado em:** 2026-11-17
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 feita, falta conferir no notebook)
-**Próxima subfase:** [7.2 Catálogo de modos](ROADMAP.md#72-catálogo-de-modos) (e, em paralelo se houver outro agente, [9.1 Janela base da pílula](ROADMAP.md#91-janela-base))
+**Em andamento:** fase 7 (7.1 e 7.2 feitas, falta conferir no notebook)
+**Próxima subfase:** [7.3 Detecção e reaplicação](ROADMAP.md#73-detecção-e-reaplicação) (e, em paralelo se houver outro agente, [9.1 Janela base da pílula](ROADMAP.md#91-janela-base))
 
 ## Progresso da v0.2
 
 | Fase | Status |
 |---|---|
-| 7 Motor de energia e modos | 🟨 em andamento (7.1 feita) |
+| 7 Motor de energia e modos | 🟨 em andamento (7.1 e 7.2 feitas) |
 | 8 Segundo plano e desligar tela | ⬜ não iniciada |
 | 9 Pílula flutuante | ⬜ não iniciada |
 | 10 Painel rápido e flyout | ⬜ não iniciada |
@@ -51,4 +51,5 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 ## Notas da última sessão
 
 - 7.1: `PowerService` agora tem `Read`/`Write`/`Commit` genéricos (AC+DC), constantes de GUID, overlay (`GetOverlay`/`SetOverlay`); configuração ausente retorna `null`/`false`. Overlay GUIDs de memória (Max Performance `3af9b8d9-…` não conferido). `Apply(turbo, limit)` da v0.1 continua igual.
+- 7.2: catálogo `PowerService.Modes` (6 modos), `ModeByName` com migração Silencioso→Economia / Normal→Eficiência, `Current()` compara turbo+limite+EPP, menu e painel listam os 6 modos. Desinstalador (`--restaurar`) agora aplica Eficiência.
 - Antes: criados `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `PRODUCT.md`, `DESIGN.md`, `docs/ROADMAP.md`, `docs/INDEX.md` e este arquivo. Nenhum código mudou.
