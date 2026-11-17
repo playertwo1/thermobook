@@ -54,6 +54,8 @@ internal sealed class TrayApp : ApplicationContext
             _menu.Items.Add(item);
         }
         _menu.Items.Add(new ToolStripSeparator());
+        _menu.Items.Add(new ToolStripMenuItem("Desligar a tela", null, (_, _) => DisplayService.TurnOff())
+            { ToolTipText = "Desliga o monitor sem suspender o PC. Mexer o mouse religa." });
         if (openFan is not null)
             _menu.Items.Add("Ventoinha (Configurações Samsung)...", null, (_, _) => openFan());
 

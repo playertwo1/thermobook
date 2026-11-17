@@ -88,10 +88,12 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 **Objetivo:** substituir o modo segundo plano do `.bat`, o `Restaurar_Plano_Padrao.bat` e o `desligar_tela.bat`.
 
 ### 8.1 Desligar tela
-- [ ] `DisplayService.TurnOff()`: `PostMessage(HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER, 2)` após 500 ms (mesmo atraso do `.bat`, para o soltar da tecla/clique não religar). `PostMessage` e não `SendMessage`, que pode travar esperando uma janela que não responde.
-- [ ] Item no menu da bandeja.
+- [x] `DisplayService.TurnOff()`: `PostMessage(HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER, 2)` após 500 ms (mesmo atraso do `.bat`, para o soltar da tecla/clique não religar). `PostMessage` e não `SendMessage`, que pode travar esperando uma janela que não responde.
+- [x] Item no menu da bandeja.
 
 **Pronto quando:** clicar desliga a tela e mexer o mouse religa, sem o app travar.
+
+> Feito no PR da 8.1: `DisplayService.TurnOff()` (espera 500 ms numa tarefa e faz `PostMessage` broadcast de `SC_MONITORPOWER`) e item "Desligar a tela" no menu da bandeja. É P/Invoke sem teste automatizado. Falta verificar rodando o app: clicar desliga a tela, mexer o mouse religa, o app não trava.
 
 ### 8.2 Atalho global
 - [ ] `RegisterHotKey` para desligar tela (padrão `Ctrl+Alt+Shift+D`, configurável no `settings.json`). Se o atalho já estiver em uso, avisa uma vez e segue sem ele.
