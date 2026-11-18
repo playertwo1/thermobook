@@ -265,7 +265,7 @@ internal sealed partial class MainForm : Form
         double t = s.TempMax;
         _temp.Push(t, $"{t:0} °C", $"Sensores: {string.Join(" / ", s.Temps.Select(x => $"{x:0}°"))}  ({TempState(t)})", TrayIconRenderer.TempColor(t));
         _cpu.Push(s.CpuUse, $"{s.CpuUse:0}%", $"{s.CpuGHz:0.00} GHz  ({s.CpuPerf:0}% da base{(s.InTurbo ? ", em turbo" : "")})");
-        _gpu.Push(s.Gpu, $"{s.Gpu:0}%", $"3D {s.Gpu3D:0}%   Vídeo {s.GpuVideo:0}%   Mem {Bytes(s.GpuMem)}");
+        _gpu.Push(s.Gpu, $"{s.Gpu:0}%", $"3D {s.Gpu3D:0}%   Vídeo {s.GpuVideo:0}%   Mem {Bytes(s.GpuMem)}" + (s.GpuTemp is { } g ? $"   {g:0} °C" : ""));
         _ram.Push(s.RamPercent, $"{s.RamPercent:0}%", $"{Bytes(s.RamUsed)} de {Bytes(s.RamTotal)} em uso");
         _disk.Push(s.DiskActive, $"{s.DiskActive:0}%", $"Ler {Bytes(s.DiskRead)}/s  Gravar {Bytes(s.DiskWrite)}/s  C: {Bytes(s.CFree)} livre");
 

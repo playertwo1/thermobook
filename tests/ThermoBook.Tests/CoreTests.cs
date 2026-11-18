@@ -2708,6 +2708,36 @@ public class NvidiaSensorTests
         Assert.Equal(1, api.Disposed);
     }
 
+    private static Snapshot Snap(double? gpuTemp) => new(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, [50], gpuTemp);
+
+    [Fact]
+    public void Flyout_mostra_a_temperatura_da_GPU_so_quando_ha()
+    {
+        Assert.DoesNotContain(FlyoutText.Lines(Snap(null), null, false), l => l.Text.StartsWith("GPU NVIDIA"));
+        var linha = Assert.Single(FlyoutText.Lines(Snap(78), null, false), l => l.Text.StartsWith("GPU NVIDIA"));
+        Assert.Equal("GPU NVIDIA: 78 °C, quente", linha.Text);
+        Assert.Equal(78.0, linha.Temp); // pinta pela cor de temperatura
+    }
+
+    [Fact]
+    public void Historico_leva_a_temperatura_da_GPU_na_coluna_propria_ou_vazia()
+    {
+        Assert.Equal(66.0, HistorySample.From(Snap(66), "Frio").GpuTemp);
+        Assert.True(double.IsNaN(HistorySample.From(Snap(null), "Frio").GpuTemp));
+        var dir = Path.Combine(Path.GetTempPath(), "thermobook-tests", "nv-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var w = new HistoryWriter(dir);
+            var t = new DateTime(2026, 11, 18, 12, 0, 0);
+            w.Add(t, HistorySample.From(Snap(64), "Frio"));
+            w.Add(t.AddSeconds(1), HistorySample.From(Snap(66), "Frio"));
+            w.Flush();
+            var campos = File.ReadAllLines(w.PathFor(t))[1].Split(';');
+            Assert.Equal("65,0", campos[4]); // gpu_temperatura_c: média do minuto
+        }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
     [Fact]
     public void Snapshot_aceita_temperatura_da_GPU_opcional()
     {

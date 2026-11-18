@@ -113,10 +113,12 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 > Feito na 15.1 (marcado só nos testes; **a NVML de verdade não foi exercida**: este notebook é Intel Arc e não tem `nvml.dll`): `Services/NvidiaSensor.cs` — `NvidiaSensor` (lógica) sobre `INvmlApi`, com `NvmlApi` ligando `nvmlInit_v2`, `nvmlDeviceGetCount_v2`, `nvmlDeviceGetHandleByIndex_v2`, `nvmlDeviceGetTemperature` e `nvmlShutdown` por ponteiro (sem dependência nova). A biblioteca só é carregada de `System32` ou de `Arquivos de Programas\NVIDIA Corporation\NVSMI`, nunca do PATH. Sem driver ou com `Init` falhando, desliga e não procura de novo; erro de contagem é passageiro (tenta na próxima); placa com erro ou leitura fora de 1–149 °C é pulada; várias placas = a mais quente; exceção de biblioteca vira nulo e desliga. `Snapshot.GpuTemp` (`double?`, padrão nulo) é preenchido na thread de fundo do `SensorService`, que agora espera a thread parar (até 2 s) antes de fechar a NVML. 400 testes, incluindo um que roda o caminho real aqui (devolve nulo). **Falta verificar numa máquina com NVIDIA:** que os 5 pontos de entrada e as assinaturas respondem e que o valor bate com `nvidia-smi --query-gpu=temperature.gpu --format=csv`. Nada mostra a temperatura ainda (15.2).
 
 ### 15.2 Mostrar
-- [ ] Flyout, cartão da GPU na aba Monitor, `--diagnostico` e o CSV da fase 16 mostram a temperatura da GPU.
-- [ ] A pílula e o alerta continuam usando a temperatura da CPU (A5).
+- [x] Flyout, cartão da GPU na aba Monitor, `--diagnostico` e o CSV da fase 16 mostram a temperatura da GPU.
+- [x] A pílula e o alerta continuam usando a temperatura da CPU (A5).
 
 **Pronto quando:** numa máquina com NVIDIA, o valor bate com `nvidia-smi --query-gpu=temperature.gpu --format=csv`. **O notebook de testes não tem NVIDIA (Intel Arc B390):** a verificação real precisa de outra máquina; sem ela, a fase fica com `[x]` só nos testes e a nota "falta verificar".
+
+> Feito na 15.2 (só nos testes; **falta verificar numa máquina com NVIDIA**): o flyout ganha a linha "GPU NVIDIA: 78 °C, quente" (cor pela temperatura) só quando há leitura; o cartão da GPU na aba Monitor acrescenta a temperatura ao detalhe; `--diagnostico` imprime `temperatura N C` ou `indisponivel (sem NVIDIA)` (visto aqui, Intel Arc: "indisponivel"); a coluna `gpu_temperatura_c` do CSV recebe `Snapshot.GpuTemp` (média do minuto). Pílula e alerta seguem na CPU (A5). 402 testes. Nenhum valor real de NVIDIA foi visto.
 
 ---
 

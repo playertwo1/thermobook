@@ -8,7 +8,7 @@ namespace ThermoBook.Services;
 internal readonly record struct HistorySample(double Temp, double Cpu, double Gpu, double GpuTemp, double Ram, string Mode)
 {
     public static HistorySample From(Snapshot s, string mode) => new(
-        s.Temps.Length > 0 ? s.TempMax : double.NaN, s.CpuUse, s.Gpu, double.NaN /* temperatura da GPU: fase 15 */,
+        s.Temps.Length > 0 ? s.TempMax : double.NaN, s.CpuUse, s.Gpu, s.GpuTemp ?? double.NaN,
         s.RamTotal > 0 ? s.RamPercent : double.NaN, mode);
 }
 

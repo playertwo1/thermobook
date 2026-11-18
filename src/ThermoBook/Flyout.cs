@@ -25,6 +25,7 @@ internal static class FlyoutText
             }
         l.Add(new($"CPU: {Pct(s.CpuUse)} · {s.CpuGHz:0.00} GHz{(s.InTurbo ? " · em turbo" : "")}"));
         l.Add(new($"GPU: 3D {Pct(s.Gpu3D)} · vídeo {Pct(s.GpuVideo)}"));
+        if (s.GpuTemp is { } g) l.Add(new($"GPU NVIDIA: {g:0} °C, {Heat(g)}", g));
         l.Add(new(s.RamTotal > 0 ? $"RAM: {MainForm.Bytes(s.RamUsed)} de {MainForm.Bytes(s.RamTotal)}" : "RAM: indisponível"));
         l.Add(new($"Disco: {Pct(s.DiskActive)}"));
         l.Add(new($"Modo: {mode?.Name ?? "Personalizado"}{(auto ? " · automático" : "")}"));
