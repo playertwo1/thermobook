@@ -4,8 +4,8 @@
 
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1–11.3 feitas, falta rodar no notebook com UAC); fase 12 (12.1 e a parte de código da 12.2 feitas, falta verificar rodando o app e o fluxo instalar → desinstalar numa conta limpa)
-**Próxima subfase:** [12.3 Documentação](ROADMAP.md#123-documentação)
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1–11.3 feitas, falta rodar no notebook com UAC); fase 12 (12.1, a parte de código da 12.2 e a 12.3 feitas, falta verificar rodando o app e o fluxo instalar → desinstalar numa conta limpa)
+**Próxima subfase:** [12.4 Release](ROADMAP.md#124-release) — antes, verificar no notebook o que está pendente nas fases 7–12; o número da versão espera aprovação do dono.
 
 ## Progresso da v0.2
 
@@ -60,6 +60,7 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 
 ## Notas da última sessão
 
+- 12.3: README, PRODUCT e DESIGN alinhados com o que foi implementado; imagem `docs/img/pilula.png` gerada por um teste temporário (já removido) que desenha o `PillForm` a 200%. Não é print do app rodando.
 - 12.2: `Uninstall.Run` (via `--restaurar`): segundo plano desligado com o snapshot, ajustes de HKCU desfeitos, modo Eficiência, e UAC para desfazer os de máquina só se existirem. Resolve a pendência "o desinstalador não desfaz a 11.3". Testado com chave/`settings.json` falsos; instalador compilado. Não rodei instalar → desinstalar (mudaria esta máquina). Sobra a chave vazia `HKLM\SOFTWARE\ThermoBook`.
 - Pílula como notch do OpenUsage (pedido do dono depois de ver o app): `FloatingForm` desliga o arredondamento e o contorno claro do DWM e recorta com `Region` própria; `PillDock.Edges`/`Corners` deixam retos os cantos do lado da tela (testado). A borda de 1 px da pílula saiu. Flyout e painel rápido também perdem o contorno do DWM e ficam com os 4 cantos arredondados. Cantos por `Region` não têm antisserrilhado (igual ao OpenUsage). Depois, também a pedido do dono: pílula um pouco maior (40 px de largura, linhas de 32 px, números de 13 px em negrito, medidor de 3 px, ponto de 7 px) e cantos de raio 10 px em vez de cápsula completa; "100°" e "100" conferidos em imagem nas duas orientações.
 - 12.1: `MainForm` em abas (Monitor, Modos, Ferramentas, Configurações), `ToolsPage` (era `OptimizeForm`) com a limpeza, `SettingsPage`, `Theme` (cores do DESIGN.md) e `TrayApp.ChangeSettings` como única porta das configurações. `TrayApp.RunTool` saiu (a limpeza agora roda pela aba). Renderizei as 4 abas a 100%; não rodei o app nem a limpeza/otimização real. Pendências fora da 12.1: o desinstalador ainda não desfaz os ajustes da 11.3 (ver na 12.2); aviso CS8765 antigo em `PillForm.cs(260)`.

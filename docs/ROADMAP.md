@@ -241,7 +241,9 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito na 12.2 (commit no `main`): `Uninstall.Run` (chamado por `--restaurar`) desliga o segundo plano devolvendo o snapshot de cada plano, desfaz os ajustes de HKCU da otimização, volta ao modo Eficiência e, só se houver backup de máquina (Delivery Optimization), pede o UAC para `otimizacao-desfazer`; recusar deixa como está. Cada passo é independente (um que falha não impede os outros). A Run key já saía pelo `[Registry]` do `.iss`; o atalho global não fica salvo no sistema (`RegisterHotKey` morre com o processo, que o `taskkill` fecha antes). Testado com chave e `settings.json` falsos: tudo ligado → tudo desfeito; nada ligado → só o modo, sem UAC; passo que falha; UAC recusado. Instalador compilado com o ISCC. **Falta:** o fluxo instalar → usar → desinstalar numa conta limpa (não rodei; mudaria o modo e os ajustes desta máquina) e ver o UAC aparecer na desinstalação. A chave vazia `HKLM\SOFTWARE\ThermoBook` fica depois de desfazer.
 
 ### 12.3 Documentação
-- [ ] README com imagem da pílula; PRODUCT/DESIGN/STATE atualizados com o que mudou na implementação.
+- [x] README com imagem da pílula; PRODUCT/DESIGN/STATE atualizados com o que mudou na implementação.
+
+> Feito na 12.3: README reescrito para a v0.2 com `docs/img/pilula.png` (desenhada pelo `OnPaint` real da pílula a 200%, com os cantos do notch aplicados na composição). PRODUCT: o que a v0.2 entrega e limites novos (.exe de ~135 MB, Widgets, apps removidos). DESIGN: cores do ponto do modo, painel rápido sem ícones e sem engrenagem, menu do botão direito como é de fato, atualização a cada segundo. A imagem não é um print do app rodando.
 
 ### 12.4 Release
 - [ ] Propor o número da versão e **esperar aprovação do dono** antes de criar a tag.

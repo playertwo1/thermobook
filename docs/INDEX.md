@@ -14,6 +14,7 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | [docs/STATE.md](STATE.md) | Onde estamos, decisões tomadas e em aberto, riscos. |
 | [docs/PLANO.md](PLANO.md) | Plano e decisões da v0.1 (histórico). |
 | [README.md](../README.md) | Apresentação e como gerar o instalador. |
+| `docs/img/pilula.png` | Imagem da pílula (vertical e horizontal, 200%), usada no README e no DESIGN. Gerada pelo `OnPaint` real do `PillForm`. |
 
 ## Código
 

@@ -21,17 +21,19 @@ O dono de um notebook fino que esquenta (o de testes é um Samsung Galaxy Book6 
 
 A pílula de ícones do OpenUsage para Windows (`~/projetos/openusage`): uma cápsula preta, estreita, presa a uma borda ou canto da tela, que mostra o essencial sem atrapalhar. Passar o mouse abre detalhes; clicar abre um painel compacto. O ThermoBook usa a mesma ideia com métricas no lugar de provedores. Ver [DESIGN.md](DESIGN.md).
 
-## O que já existe (v0.1.0)
+## v0.1.0 (publicada)
 
 Ícone na bandeja com a temperatura, menu com 4 perfis (Frio, Silencioso, Normal, Máximo), painel com cartões e gráficos, alerta de temperatura, iniciar com o Windows, instalador sem admin e release automática. Detalhes em [docs/PLANO.md](docs/PLANO.md).
 
-## O que a v0.2 entrega
+## v0.2 (feita no código, falta verificar no notebook)
 
-1. **Pílula flutuante** sempre visível, presa a borda/canto, arrastável, com temperatura, CPU, GPU, RAM e o modo atual.
-2. **Seis modos de energia** (catálogo único que junta os perfis da v0.1 e as opções do `.bat`).
-3. **Modo segundo plano** reversível: guarda os valores originais e restaura exatamente esses.
-4. **Desligar tela** por botão e por atalho global.
-5. **Ferramentas** que precisam de administrador (limpeza e otimização), rodando num processo elevado separado, só quando o usuário pede.
+1. **Pílula flutuante** sempre visível, presa a borda/canto como um notch, arrastável, com temperatura, CPU, GPU, RAM e o modo atual. Passar o mouse abre o flyout; clicar abre o painel rápido; some com app em tela cheia.
+2. **Seis modos de energia** (Economia, Frio, Eficiência, Equilibrado, Alto, Máximo): catálogo único que junta os perfis da v0.1 e as opções do `.bat`. Silencioso vira Economia e Normal vira Eficiência sozinhos. Mexer no modo pelo Windows mostra "Personalizado"; trocar de plano reaplica o modo salvo.
+3. **Modo segundo plano** reversível: guarda os valores originais de cada plano e restaura exatamente esses.
+4. **Desligar tela** por botão e pelo atalho global `Ctrl+Alt+Shift+D` (configurável).
+5. **Ferramentas** que precisam de administrador (limpeza e a parte de máquina da otimização), rodando num processo elevado separado, só quando o usuário pede. Os ajustes da conta rodam sem UAC e têm Desfazer.
+6. **Painel completo em abas**: Monitor, Modos, Ferramentas e Configurações (tudo do `settings.json` editável e salvo na hora).
+7. **Desinstalar devolve o PC como estava**: desliga o segundo plano, desfaz os ajustes da otimização (os de máquina pedem UAC) e volta ao modo Eficiência.
 
 ## Princípios
 
@@ -51,6 +53,9 @@ Controle de ventoinha (o firmware Samsung não expõe), modo automático por pro
 - **Temperatura da GPU** integrada (Intel Arc) não é exposta sem driver; a pílula mostra só uso da GPU. GPU dedicada NVIDIA pode ganhar temperatura depois via `nvidia-smi`.
 - **Modos de energia do Windows (overlay)** só têm efeito com o plano Equilibrado ativo; em outros planos o app grava os valores do processador direto.
 - **SmartScreen** mostra "Editor desconhecido" (sem certificado de assinatura).
+- **O .exe tem ~135 MB**: o `PackageManager` do WinRT (remover apps pré-instalados) traz ~24 MB de SDK, além do .NET embutido.
+- **Widgets** na barra de tarefas: builds recentes do Windows bloqueiam a escrita e o ajuste aparece como "Não aplicado".
+- **Apps pré-instalados removidos** não voltam pelo ThermoBook; só pela Microsoft Store.
 
 ## Como saber que deu certo
 
