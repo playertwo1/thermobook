@@ -15,7 +15,8 @@ internal static partial class TrayIconRenderer
     };
 
     /// <param name="celsius">null enquanto ainda não houver leitura.</param>
-    public static Icon Render(double? celsius, int size)
+    /// <param name="background">Modo segundo plano ligado: pontinho azul no canto.</param>
+    public static Icon Render(double? celsius, int size, bool background = false)
     {
         using var bmp = new Bitmap(size, size);
         using (var g = Graphics.FromImage(bmp))
@@ -47,6 +48,14 @@ internal static partial class TrayIconRenderer
             using (font)
             using (var brush = new SolidBrush(celsius is null ? Color.Gainsboro : TempColor(celsius.Value)))
                 g.DrawString(text, font, brush, new RectangleF(0, size * 0.03f, size, size), fmt);
+            if (background)
+            {
+                float d = size * 0.34f;
+                using var dot = new SolidBrush(Color.FromArgb(64, 156, 255));
+                using var ring = new Pen(Color.FromArgb(28, 28, 32), Math.Max(1f, size * 0.06f));
+                g.FillEllipse(dot, size - d - 1, size - d - 1, d, d);
+                g.DrawEllipse(ring, size - d - 1, size - d - 1, d, d);
+            }
         }
 
         // Icon.FromHandle não copia: clona e libera o HICON para não vazar a cada atualização.

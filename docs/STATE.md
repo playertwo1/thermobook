@@ -2,17 +2,17 @@
 
 > Atualize este arquivo no mesmo PR de cada subfase concluída. Mantenha curto: o histórico fica no git.
 
-**Atualizado em:** 2026-11-17
+**Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 e 8.2 feitas, falta verificar rodando o app)
-**Próxima subfase:** [8.3 Modo segundo plano](ROADMAP.md#83-modo-segundo-plano) (e, em paralelo se houver outro agente, [9.1 Janela base da pílula](ROADMAP.md#91-janela-base))
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook)
+**Próxima subfase:** [9.1 Janela base da pílula](ROADMAP.md#91-janela-base)
 
 ## Progresso da v0.2
 
 | Fase | Status |
 |---|---|
 | 7 Motor de energia e modos | 🟨 em andamento (7.1–7.4 feitas, falta conferir no notebook) |
-| 8 Segundo plano e desligar tela | 🟨 em andamento (8.1 e 8.2 feitas, falta verificar rodando o app) |
+| 8 Segundo plano e desligar tela | 🟨 em andamento (8.1–8.3 feitas, falta verificar no notebook) |
 | 9 Pílula flutuante | ⬜ não iniciada |
 | 10 Painel rápido e flyout | ⬜ não iniciada |
 | 11 Ferramentas com administrador | ⬜ não iniciada |
@@ -47,9 +47,11 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 - **GPU Intel Arc sem temperatura** sem driver de kernel: a pílula mostra só uso. Aceito.
 - **Overlay do modo de energia** só funciona com o plano Equilibrado ativo. Fora dele, os valores do processador são gravados direto e o overlay é ignorado.
 - **Verificação real exige o notebook** (tampa, UAC, `powercfg /qh`): CI só cobre build e testes.
+- **Modo segundo plano mexe na tampa/suspensão**: se algo falhar no meio, o snapshot em `settings.json` (`BackgroundPlans`) guarda os valores originais por plano; desligar o modo restaura.
 
 ## Notas da última sessão
 
+- 8.3: `BackgroundMode` + menu + ponto azul no ícone. Não testei fechar a tampa.
 - 8.2: `HotkeyService` + `HotkeyWindow`; `Settings.Hotkey` novo com padrão, compatível com settings antigos.
 - 8.1: `DisplayService.TurnOff()` + item no menu da bandeja. Não testei desligar a tela de verdade na sessão do agente.
 - 7.4: `--diagnostico` imprime tabela atual x esperado (`PowerDiagnostics`). Observação: o `--diagnostico` só imprime no console quando chamado de um terminal que o anexe (ex.: PowerShell `& ThermoBook.exe --diagnostico | Out-String`).

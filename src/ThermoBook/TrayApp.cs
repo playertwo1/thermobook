@@ -19,6 +19,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ContextMenuStrip _menu = new();
     private readonly ToolStripMenuItem _status;
     private readonly Dictionary<PowerMode, ToolStripMenuItem> _profileItems = [];
+    private readonly ToolStripMenuItem _background;
     private readonly PlanWatcher _planWatcher;
     private readonly HotkeyWindow _hotkeyWindow;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 1000 };
@@ -57,6 +58,12 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Desligar a tela", null, (_, _) => DisplayService.TurnOff())
             { ToolTipText = "Desliga o monitor sem suspender o PC. Mexer o mouse religa." });
+        _background = new ToolStripMenuItem("Modo segundo plano", null, (_, _) => ToggleBackground())
+        {
+            Checked = BackgroundMode.IsOn(_settings),
+            ToolTipText = "Tampa fechada e inatividade não suspendem o PC. Ao desligar, volta ao que estava antes.",
+        };
+        _menu.Items.Add(_background);
         if (openFan is not null)
             _menu.Items.Add("Ventoinha (Configurações Samsung)...", null, (_, _) => openFan());
 
@@ -80,7 +87,7 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add("Sair", null, (_, _) => ExitThread());
         _menu.ShowItemToolTips = true;
 
-        _icon = TrayIconRenderer.Render(null, IconSize);
+        _icon = TrayIconRenderer.Render(null, IconSize, BackgroundMode.IsOn(_settings));
         _tray = new NotifyIcon { Icon = _icon, Text = "ThermoBook", ContextMenuStrip = _menu, Visible = true };
         _tray.MouseUp += (_, e) =>
         {
@@ -92,6 +99,7 @@ internal sealed class TrayApp : ApplicationContext
         };
 
         ReapplySavedProfile();
+        if (BackgroundMode.IsOn(_settings)) ApplyBackground(); // continua ligado depois de fechar o app ou reiniciar o PC
         _planWatcher = new PlanWatcher(OnPlanChanged);
         _hotkeyWindow = new HotkeyWindow(DisplayService.TurnOff);
         if (!string.IsNullOrWhiteSpace(_settings.Hotkey) && !_hotkeyWindow.Register(_settings.Hotkey))
@@ -118,7 +126,35 @@ internal sealed class TrayApp : ApplicationContext
     private void OnPlanChanged()
     {
         ReapplySavedProfile();
+        if (BackgroundMode.IsOn(_settings)) ApplyBackground();
         RefreshPowerState(syncControls: true);
+    }
+
+    /// <summary>Liga no plano ativo (guarda o snapshot dele se ainda não houver).</summary>
+    private void ApplyBackground()
+    {
+        try
+        {
+            _settings = BackgroundMode.Enable(_settings, PowerService.ActivePlan(), PowerService.ReadPlan, PowerService.WritePlan, SaveSettings);
+            PowerService.Commit();
+        }
+        catch (Exception ex) { ShowError($"Não consegui ligar o modo segundo plano: {ex.Message}"); }
+    }
+
+    private void ToggleBackground()
+    {
+        try
+        {
+            if (BackgroundMode.IsOn(_settings))
+            {
+                _settings = BackgroundMode.Disable(_settings, PowerService.WritePlan, SaveSettings);
+                PowerService.Commit();
+            }
+            else ApplyBackground();
+        }
+        catch (Exception ex) { ShowError($"Não consegui mudar o modo segundo plano: {ex.Message}"); }
+        _background.Checked = BackgroundMode.IsOn(_settings);
+        UpdateIcon(force: true);
     }
 
     private void ReapplySavedProfile()
@@ -214,7 +250,7 @@ internal sealed class TrayApp : ApplicationContext
         if (force || temp != _shownTemp)
         {
             var old = _icon;
-            _icon = TrayIconRenderer.Render(temp, IconSize);
+            _icon = TrayIconRenderer.Render(temp, IconSize, BackgroundMode.IsOn(_settings));
             _tray.Icon = _icon;
             old.Dispose();
             _shownTemp = temp;
