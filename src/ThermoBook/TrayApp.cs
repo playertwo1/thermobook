@@ -21,6 +21,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly Dictionary<PowerMode, ToolStripMenuItem> _profileItems = [];
     private readonly ToolStripMenuItem _background;
     private readonly PillForm _pill = new();
+    private bool _fullscreenApp;
     private readonly PlanWatcher _planWatcher;
     private readonly HotkeyWindow _hotkeyWindow;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 1000 };
@@ -63,9 +64,14 @@ internal sealed class TrayApp : ApplicationContext
         _pill.PlacementChanged += (key, pos) =>
             SaveSettings(_settings with { PillMonitor = key, PillPositions = new(_settings.PillPositions ?? []) { [key] = pos } });
         // Provisório da 9.1 (a 9.4 cuida de mostrar/ocultar e lembrar a escolha).
-        var pillItem = new ToolStripMenuItem("Mostrar pílula") { CheckOnClick = true };
-        pillItem.Click += (_, _) => { if (pillItem.Checked) _pill.Show(); else _pill.Hide(); };
+        var pillItem = new ToolStripMenuItem("Mostrar pílula") { CheckOnClick = true, Checked = _settings.ShowPill };
+        pillItem.Click += (_, _) =>
+        {
+            SaveSettings(_settings with { ShowPill = pillItem.Checked });
+            UpdatePillVisibility();
+        };
         _menu.Items.Add(pillItem);
+        _pill.ContextMenuStrip = _menu; // botão direito na pílula abre o mesmo menu da bandeja
         _background = new ToolStripMenuItem("Modo segundo plano", null, (_, _) => ToggleBackground())
         {
             Checked = BackgroundMode.IsOn(_settings),
@@ -113,6 +119,7 @@ internal sealed class TrayApp : ApplicationContext
         if (!string.IsNullOrWhiteSpace(_settings.Hotkey) && !_hotkeyWindow.Register(_settings.Hotkey))
             ShowError($"Não consegui registrar o atalho {_settings.Hotkey} (já em uso ou inválido). O ThermoBook segue sem ele.");
         RefreshPowerState(syncControls: true);
+        UpdatePillVisibility();
         _timer.Tick += (_, _) => OnTick();
         _timer.Start();
         if (showPanel) ShowPanel();
@@ -224,10 +231,20 @@ internal sealed class TrayApp : ApplicationContext
         }
     }
 
+    /// <summary>Pílula visível se o usuário quer e nenhum app em tela cheia (jogo, vídeo, apresentação) está na frente.</summary>
+    private void UpdatePillVisibility()
+    {
+        _fullscreenApp = FullscreenGuard.IsFullscreenAppActive();
+        bool show = _settings.ShowPill && !_fullscreenApp;
+        if (show == _pill.Visible) return;
+        if (show) _pill.Show(); else _pill.Hide();
+    }
+
     private void OnTick()
     {
         // Só atualiza o que é mostrado (ex.: modo trocado nas Configurações do Windows vira "Personalizado"); a reaplicação vem do PlanWatcher.
         if (++_ticks % 5 == 0) RefreshPowerState();
+        if (_ticks % 2 == 0) UpdatePillVisibility();
         UpdateIcon(force: false);
 
         var s = _sensors.Latest;
