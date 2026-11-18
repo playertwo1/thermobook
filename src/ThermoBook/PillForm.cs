@@ -1,6 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using ThermoBook.Services;
 
 namespace ThermoBook;
@@ -30,6 +31,13 @@ internal sealed partial class PillForm : Form
     private static readonly string[] RowNames = ["Temperatura", "Processador", "GPU", "Memória RAM", "Modo de energia"];
 
     private PillState? _state;
+    private string? _monitor;
+    private Dictionary<string, PillPosition>? _positions;
+    private Point _dragOffset;
+    private bool _dragging;
+
+    /// <summary>Posição final escolhida pelo usuário (monitor + posição) para salvar no settings.json.</summary>
+    public event Action<string, PillPosition>? PlacementChanged;
     private PowerMode? _mode;
     private bool _background;
     private Orientation _orientation = Orientation.Vertical;
@@ -47,11 +55,95 @@ internal sealed partial class PillForm : Form
         // Tamanhos em pixels de 96 DPI escalados pelo DPI do monitor (PerMonitorV2 no csproj).
         float k = _scale = DeviceDpi / 96f;
         Relayout();
-        Font = new Font("Segoe UI Variable", 11 * k, FontStyle.Bold, GraphicsUnit.Pixel);
-        if (Font.Name != "Segoe UI Variable") Font = new Font("Segoe UI", 11 * k, FontStyle.Bold, GraphicsUnit.Pixel);
-        // Posição inicial (A3): borda direita, centro vertical, monitor principal.
-        var wa = Screen.PrimaryScreen!.WorkingArea;
-        Location = new Point(wa.Right - Width - (int)(8 * k), wa.Top + (wa.Height - Height) / 2);
+        Font = MakeFont();
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+    }
+
+    private Font MakeFont()
+    {
+        var f = new Font("Segoe UI Variable", 11 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        return f.Name == "Segoe UI Variable" ? f : new Font("Segoe UI", 11 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+    }
+
+    private (Size Vertical, Size Horizontal) Sizes() =>
+        (PillLayout.Compute(Orientation.Vertical, _scale).Size, PillLayout.Compute(Orientation.Horizontal, _scale).Size);
+
+    private static List<(string Key, Rectangle Area)> Screens() =>
+        Screen.AllScreens.Select(s => (PillDock.MonitorKey(s.DeviceName, s.Bounds), s.WorkingArea)).ToList();
+
+    /// <summary>Posiciona a pílula: a salva do monitor atual, ou o canto padrão do monitor principal se ele sumiu.</summary>
+    public void Restore(string? monitor, Dictionary<string, PillPosition>? positions)
+    {
+        _monitor = monitor;
+        _positions = positions;
+        var (v, h) = Sizes();
+        var primary = Screen.PrimaryScreen!;
+        var (key, r) = PillDock.Resolve(_monitor, _positions, Screens(), PillDock.MonitorKey(primary.DeviceName, primary.Bounds), v, h);
+        _monitor = key;
+        PillOrientation = r.Orientation;
+        Location = r.Location;
+    }
+
+    /// <summary>Cabo desligado ou resolução trocada: a posição antiga pode estar fora de qualquer tela.</summary>
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        if (IsHandleCreated && !IsDisposed) BeginInvoke(() => Restore(_monitor, _positions)); // o evento vem de outra thread
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        _scale = e.DeviceDpiNew / 96f;
+        var old = Font;
+        Font = MakeFont();
+        old.Dispose();
+        Relayout();
+        Dock();
+        Invalidate();
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button != MouseButtons.Left) return;
+        _dragging = true;
+        _dragOffset = new Point(MousePosition.X - Left, MousePosition.Y - Top);
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_dragging) Location = new Point(MousePosition.X - _dragOffset.X, MousePosition.Y - _dragOffset.Y);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (!_dragging) return;
+        _dragging = false;
+        Dock();
+        var scr = Screen.FromControl(this);
+        var key = PillDock.MonitorKey(scr.DeviceName, scr.Bounds);
+        var pos = new PillPosition(Left, Top, _orientation == Orientation.Horizontal);
+        _monitor = key;
+        (_positions ??= [])[key] = pos;
+        PlacementChanged?.Invoke(key, pos);
+    }
+
+    /// <summary>Encaixa na borda mais próxima (a até 24 px lógicos) do monitor onde a pílula está.</summary>
+    private void Dock()
+    {
+        var (v, h) = Sizes();
+        var area = Screen.FromControl(this).WorkingArea;
+        var r = PillDock.Snap(Location, Size, _orientation, v, h, area, (int)Math.Round(PillDock.ThresholdLogical * _scale));
+        PillOrientation = r.Orientation;
+        Location = r.Location;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        base.Dispose(disposing);
     }
 
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
