@@ -147,6 +147,46 @@ public class SettingsStoreTests
     }
 }
 
+public class HotkeyTests
+{
+    [Theory]
+    [InlineData("Ctrl+Alt+Shift+D", 7u, 'D')]
+    [InlineData("ctrl+alt+d", 3u, 'D')]
+    [InlineData("Win+F12", 8u, 0x7Bu)]
+    [InlineData(" Shift + 5 ", 4u, '5')]
+    public void Aceita_texto_valido(string text, uint mods, uint vk)
+    {
+        Assert.True(HotkeyService.TryParse(text, out uint m, out uint k));
+        Assert.Equal((mods, vk), (m, k));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("D")]
+    [InlineData("Ctrl+")]
+    [InlineData("Ctrl+Foo")]
+    [InlineData("Ctrl+F25")]
+    [InlineData("Banana+D")]
+    [InlineData("Ctrl+Alt+Shift+Win")]
+    public void Rejeita_texto_invalido(string? text) =>
+        Assert.False(HotkeyService.TryParse(text, out _, out _));
+
+    [Fact]
+    public void Padrao_e_Ctrl_Alt_Shift_D_e_e_valido()
+    {
+        Assert.Equal("Ctrl+Alt+Shift+D", new Settings().Hotkey);
+        Assert.True(HotkeyService.TryParse(new Settings().Hotkey, out _, out _));
+    }
+
+    [Fact]
+    public void Settings_antigo_sem_Hotkey_usa_o_padrao()
+    {
+        var s = System.Text.Json.JsonSerializer.Deserialize<Settings>("""{ "Profile": "Frio" }""")!;
+        Assert.Equal("Ctrl+Alt+Shift+D", s.Hotkey);
+    }
+}
+
 public class TempAlertTests
 {
     private static readonly DateTime T0 = new(2026, 1, 1, 12, 0, 0);

@@ -20,6 +20,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _status;
     private readonly Dictionary<PowerMode, ToolStripMenuItem> _profileItems = [];
     private readonly PlanWatcher _planWatcher;
+    private readonly HotkeyWindow _hotkeyWindow;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 1000 };
     private Icon _icon;
     private double? _shownTemp;
@@ -92,6 +93,9 @@ internal sealed class TrayApp : ApplicationContext
 
         ReapplySavedProfile();
         _planWatcher = new PlanWatcher(OnPlanChanged);
+        _hotkeyWindow = new HotkeyWindow(DisplayService.TurnOff);
+        if (!string.IsNullOrWhiteSpace(_settings.Hotkey) && !_hotkeyWindow.Register(_settings.Hotkey))
+            ShowError($"Não consegui registrar o atalho {_settings.Hotkey} (já em uso ou inválido). O ThermoBook segue sem ele.");
         RefreshPowerState(syncControls: true);
         _timer.Tick += (_, _) => OnTick();
         _timer.Start();
@@ -232,6 +236,7 @@ internal sealed class TrayApp : ApplicationContext
     {
         _timer.Stop();
         _planWatcher.Dispose();
+        _hotkeyWindow.Dispose();
         _openPanelWait.Unregister(null);
         _tray.Visible = false;
         _tray.Dispose();
@@ -270,6 +275,34 @@ internal sealed class TrayApp : ApplicationContext
         public void Dispose()
         {
             if (_registration != IntPtr.Zero) PowerService.UnregisterPlanChange(_registration);
+            DestroyHandle();
+        }
+    }
+
+    /// <summary>Janela invisível que recebe WM_HOTKEY do atalho de desligar a tela.</summary>
+    private sealed class HotkeyWindow : NativeWindow, IDisposable
+    {
+        private const int WM_HOTKEY = 0x0312, Id = 1;
+        private readonly Action _onPressed;
+        private bool _registered;
+
+        public HotkeyWindow(Action onPressed)
+        {
+            _onPressed = onPressed;
+            CreateHandle(new CreateParams());
+        }
+
+        public bool Register(string text) => _registered = HotkeyService.Register(Handle, Id, text);
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_HOTKEY && (int)m.WParam == Id) _onPressed();
+            base.WndProc(ref m);
+        }
+
+        public void Dispose()
+        {
+            if (_registered) HotkeyService.Unregister(Handle, Id);
             DestroyHandle();
         }
     }

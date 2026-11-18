@@ -4,15 +4,15 @@
 
 **Atualizado em:** 2026-11-17
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 feita, falta verificar rodando o app)
-**Próxima subfase:** [8.2 Atalho global](ROADMAP.md#82-atalho-global) (e, em paralelo se houver outro agente, [9.1 Janela base da pílula](ROADMAP.md#91-janela-base))
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 e 8.2 feitas, falta verificar rodando o app)
+**Próxima subfase:** [8.3 Modo segundo plano](ROADMAP.md#83-modo-segundo-plano) (e, em paralelo se houver outro agente, [9.1 Janela base da pílula](ROADMAP.md#91-janela-base))
 
 ## Progresso da v0.2
 
 | Fase | Status |
 |---|---|
 | 7 Motor de energia e modos | 🟨 em andamento (7.1–7.4 feitas, falta conferir no notebook) |
-| 8 Segundo plano e desligar tela | 🟨 em andamento (8.1 feita, falta verificar rodando o app) |
+| 8 Segundo plano e desligar tela | 🟨 em andamento (8.1 e 8.2 feitas, falta verificar rodando o app) |
 | 9 Pílula flutuante | ⬜ não iniciada |
 | 10 Painel rápido e flyout | ⬜ não iniciada |
 | 11 Ferramentas com administrador | ⬜ não iniciada |
@@ -30,6 +30,7 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ no `main` · ⚠️ no `m
 | D4 | Segundo plano restaura o **snapshot** do que havia antes, não um padrão fixo | O `Restaurar_Plano_Padrao.bat` força o plano Equilibrado e "suspender", o que pode não ser o que o usuário tinha. |
 | D5 | Limpeza/otimização num processo elevado separado, com lista fechada de tarefas | O app principal nunca roda como administrador. |
 | D6 | Esvaziar Lixeira e remover apps desmarcados por padrão | Não têm volta. |
+| D7 | Atalho para desligar a tela é `Ctrl+Alt+Shift+D`, configurável em `settings.json` | Proposta A2 aceita por falta de objeção. |
 
 ## Decisões em aberto
 
@@ -38,7 +39,6 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 | # | Pergunta | Proposta | Antes de |
 |---|---|---|---|
 | A1 | Os valores do modo **Frio** (além do turbo desligado) | Iguais ao Equilibrado | 7.2 |
-| A2 | Atalho global para desligar a tela | `Ctrl+Alt+Shift+D` | 8.2 |
 | A3 | Posição inicial da pílula | Borda direita, centro vertical, monitor principal | 9.3 |
 | A4 | Mostrar a pílula logo na primeira execução | Sim | 9.4 |
 
@@ -50,6 +50,7 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 
 ## Notas da última sessão
 
+- 8.2: `HotkeyService` + `HotkeyWindow`; `Settings.Hotkey` novo com padrão, compatível com settings antigos.
 - 8.1: `DisplayService.TurnOff()` + item no menu da bandeja. Não testei desligar a tela de verdade na sessão do agente.
 - 7.4: `--diagnostico` imprime tabela atual x esperado (`PowerDiagnostics`). Observação: o `--diagnostico` só imprime no console quando chamado de um terminal que o anexe (ex.: PowerShell `& ThermoBook.exe --diagnostico | Out-String`).
 - 7.1: `PowerService` agora tem `Read`/`Write`/`Commit` genéricos (AC+DC), constantes de GUID, overlay (`GetOverlay`/`SetOverlay`); configuração ausente retorna `null`/`false`. Overlay GUIDs de memória (Max Performance `3af9b8d9-…` não conferido). `Apply(turbo, limit)` da v0.1 continua igual.

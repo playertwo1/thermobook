@@ -6,7 +6,8 @@ namespace ThermoBook.Services;
 /// <param name="AlertCelsius">Avisa quando a temperatura passar disto...</param>
 /// <param name="AlertSeconds">...por este tempo seguido.</param>
 /// <param name="AutoCool">No aviso, troca sozinho para o perfil Frio.</param>
-internal sealed record Settings(string? Profile = null, double AlertCelsius = 90, int AlertSeconds = 30, bool AutoCool = false);
+/// <param name="Hotkey">Atalho global para desligar a tela, ex.: "Ctrl+Alt+Shift+D". Vazio desliga o atalho.</param>
+internal sealed record Settings(string? Profile = null, double AlertCelsius = 90, int AlertSeconds = 30, bool AutoCool = false, string Hotkey = HotkeyService.Default);
 
 /// <summary>Guarda as configurações em %AppData%\ThermoBook\settings.json.</summary>
 internal sealed class SettingsStore(string path)
