@@ -15,7 +15,7 @@ internal sealed class TrayApp : ApplicationContext
     private TempAlert _alert;
     private readonly MainForm _panel;
     private readonly SettingsPage _settingsPage;
-    private readonly ToolStripMenuItem _pillItem, _startupItem, _autoCoolItem;
+    private readonly ToolStripMenuItem _pillItem, _startupItem, _autoCoolItem, _autoModeItem;
     private readonly RegisteredWaitHandle _openPanelWait;
     private readonly NotifyIcon _tray;
     private readonly ContextMenuStrip _menu = new();
@@ -88,6 +88,9 @@ internal sealed class TrayApp : ApplicationContext
             ToolTipText = "Tampa fechada e inatividade não suspendem o PC. Ao desligar, volta ao que estava antes.",
         };
         _menu.Items.Add(_background);
+        _autoModeItem = new ToolStripMenuItem("Modo automático") { CheckOnClick = true, ToolTipText = "Troca o modo pela tomada/bateria e por programas abertos (regras em Configurações)." };
+        _autoModeItem.Click += (_, _) => ChangeSettings(s => s with { Auto = (s.Auto ?? AutoRules.Default) with { Enabled = _autoModeItem.Checked } });
+        _menu.Items.Add(_autoModeItem);
         if (openFan is not null)
             _menu.Items.Add("Ventoinha (Configurações Samsung)...", null, (_, _) => openFan());
 
@@ -242,6 +245,7 @@ internal sealed class TrayApp : ApplicationContext
         _pillItem.Checked = _settings.ShowPill;
         _startupItem.Checked = startup;
         _autoCoolItem.Checked = _settings.AutoCool;
+        _autoModeItem.Checked = _settings.Auto is { Enabled: true };
         _autoCoolItem.Text = $"Trocar para Frio acima de {_settings.AlertCelsius:0} °C";
         _autoCoolItem.ToolTipText = $"Quando passar de {_settings.AlertCelsius:0} °C por {_settings.AlertSeconds} s, desliga o turbo sozinho.";
         _settingsPage.Show(_settings, startup);

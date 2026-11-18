@@ -12,7 +12,10 @@ internal sealed class SettingsPage : UserControl
     private Settings _shown = new();
     private bool _syncing;
 
-    internal readonly CheckBox Pill, Startup, AutoCool;
+    internal readonly CheckBox Pill, Startup, AutoCool, AutoOn;
+    internal readonly ComboBox OnBattery, OnAc, ProgramName, ProgramMode;
+    internal readonly ListBox Programs;
+    internal readonly Button ProgramAdd, ProgramRemove;
     internal readonly NumericUpDown AlertCelsius, AlertSeconds;
     internal readonly TextBox Hotkey;
     internal readonly Button HotkeyApply;
@@ -55,6 +58,29 @@ internal sealed class SettingsPage : UserControl
         AutoCool.CheckedChanged += (_, _) => Change(s => s with { AutoCool = AutoCool.Checked });
         list.Controls.Add(AutoCool);
 
+        list.Controls.Add(Theme.Header("Modo automático"));
+        AutoOn = Check("Trocar de modo sozinho");
+        AutoOn.CheckedChanged += (_, _) => ChangeRules(r => r with { Enabled = AutoOn.Checked });
+        list.Controls.Add(AutoOn);
+        OnBattery = ModeBox(true);
+        OnAc = ModeBox(true);
+        OnBattery.SelectedIndexChanged += (_, _) => ChangeRules(r => r with { OnBattery = ModeOf(OnBattery) });
+        OnAc.SelectedIndexChanged += (_, _) => ChangeRules(r => r with { OnAc = ModeOf(OnAc) });
+        list.Controls.Add(Row(Caption("Na bateria:"), OnBattery, Caption("Na tomada:"), OnAc));
+        Programs = new ListBox { Width = 330, Height = 84, BackColor = Theme.Raised, ForeColor = Theme.Fg, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(12, 6, 3, 3) };
+        Programs.KeyDown += (_, e) => { if (e.KeyCode == Keys.Delete) RemoveProgram(); };
+        list.Controls.Add(Programs);
+        ProgramName = new ComboBox { Width = 150, BackColor = Theme.Raised, ForeColor = Theme.Fg, FlatStyle = FlatStyle.Flat, Margin = new Padding(12, 6, 4, 3) };
+        ProgramName.DropDown += (_, _) => FillRunning();
+        ProgramMode = ModeBox(false);
+        ProgramMode.SelectedIndex = 1; // Frio
+        ProgramAdd = Theme.Button("Adicionar");
+        ProgramAdd.Click += (_, _) => AddProgram();
+        ProgramRemove = Theme.Button("Remover");
+        ProgramRemove.Click += (_, _) => RemoveProgram();
+        list.Controls.Add(Row(ProgramName, Caption("→"), ProgramMode, ProgramAdd, ProgramRemove));
+        list.Controls.Add(Theme.Note("Programa aberto vence tomada/bateria; o primeiro da lista vale. Escreva o nome do .exe ou abra a lista para escolher um processo aberto. Trocar o modo à mão vale até as regras pedirem outro."));
+
         list.Controls.Add(Theme.Header("Inicialização"));
         Startup = Check("Iniciar com o Windows");
         Startup.CheckedChanged += (_, _) => { if (!_syncing) setStartup(Startup.Checked); };
@@ -74,6 +100,12 @@ internal sealed class SettingsPage : UserControl
             Pill.Checked = s.ShowPill;
             AutoCool.Checked = s.AutoCool;
             Startup.Checked = startup;
+            var rules = s.Auto ?? AutoRules.Default;
+            AutoOn.Checked = rules.Enabled;
+            Select(OnBattery, rules.OnBattery);
+            Select(OnAc, rules.OnAc);
+            Programs.Items.Clear();
+            foreach (var p in rules.Programs ?? []) Programs.Items.Add($"{p.Process} → {p.Mode}");
             AlertCelsius.Value = Math.Clamp((decimal)s.AlertCelsius, AlertCelsius.Minimum, AlertCelsius.Maximum);
             AlertSeconds.Value = Math.Clamp(s.AlertSeconds, AlertSeconds.Minimum, AlertSeconds.Maximum);
             if (!Hotkey.Focused) Hotkey.Text = s.Hotkey;
@@ -84,6 +116,59 @@ internal sealed class SettingsPage : UserControl
     private void Change(Func<Settings, Settings> edit)
     {
         if (!_syncing) _change(edit);
+    }
+
+    private void ChangeRules(Func<AutoRules, AutoRules> edit) => Change(s => s with { Auto = edit(s.Auto ?? AutoRules.Default) });
+
+    /// <summary>Caixa de modos; com <paramref name="none"/>, o primeiro item é "(nenhum)" (sem regra).</summary>
+    private static ComboBox ModeBox(bool none)
+    {
+        var box = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110, BackColor = Theme.Raised, ForeColor = Theme.Fg, FlatStyle = FlatStyle.Flat, Margin = new Padding(4, 6, 4, 3) };
+        if (none) box.Items.Add("(nenhum)");
+        foreach (var m in PowerService.Modes) box.Items.Add(m.Name);
+        return box;
+    }
+
+    private static string? ModeOf(ComboBox box) => box.SelectedIndex <= 0 && box.Items[0] is "(nenhum)" ? null : (string?)box.SelectedItem;
+
+    private static void Select(ComboBox box, string? mode) =>
+        box.SelectedIndex = mode is null ? 0 : Math.Max(0, box.Items.IndexOf(mode));
+
+    internal void AddProgram()
+    {
+        string name = ProgramName.Text.Trim();
+        if (name.Length == 0 || ProgramMode.SelectedItem is not string mode) return;
+        ChangeRules(r =>
+        {
+            var list = (r.Programs ?? []).Where(p => !SameProcess(p.Process, name)).ToList();
+            list.Add(new(name, mode));
+            return r with { Programs = list };
+        });
+        ProgramName.Text = "";
+    }
+
+    internal void RemoveProgram()
+    {
+        int i = Programs.SelectedIndex;
+        if (i < 0) return;
+        ChangeRules(r => r with { Programs = (r.Programs ?? []).Where((_, k) => k != i).ToList() });
+        if (Programs.Items.Count > 0) Programs.SelectedIndex = Math.Min(i, Programs.Items.Count - 1);
+    }
+
+    private static bool SameProcess(string a, string b) =>
+        string.Equals(a.Replace(".exe", "", StringComparison.OrdinalIgnoreCase), b.Replace(".exe", "", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Preenche a lista com os processos abertos (uma vez, ao abrir a lista; não é consulta de sensor).</summary>
+    private void FillRunning()
+    {
+        var processes = System.Diagnostics.Process.GetProcesses();
+        try
+        {
+            var names = processes.Select(p => p.ProcessName).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            ProgramName.Items.Clear();
+            ProgramName.Items.AddRange(names);
+        }
+        finally { foreach (var p in processes) p.Dispose(); }
     }
 
     internal void ApplyHotkey()

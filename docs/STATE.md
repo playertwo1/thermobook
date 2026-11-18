@@ -5,14 +5,14 @@
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0; pré-lançamento v0.2.0-beta.1
 **Pendente da v0.2:** verificação no notebook pelo dono ([checklist](VERIFICACAO.md)) e tag `v0.2.0` com aprovação. As fases 0–12 estão em [archive/ROADMAP-v0.2.md](archive/ROADMAP-v0.2.md).
-**Próxima subfase:** [13.3 Interface](ROADMAP.md#133-interface) do modo automático.
+**Próxima subfase:** [14.1 Tarefa no Agendador](ROADMAP.md#141-tarefa-no-agendador) da limpeza agendada (antes, verificar a fase 13 no notebook).
 
 ## Progresso
 
 | Fase | Status |
 |---|---|
 | 0–12 v0.1 e v0.2 | ⚠️ no `main`, falta a verificação da v0.2 no notebook |
-| 13 Modo automático por regra | 🟨 em andamento (13.1 e 13.2 feitas; 13.2 falta verificar no notebook) |
+| 13 Modo automático por regra | ⚠️ no `main` mas falta verificar (13.1–13.3 feitas; falta rodar o app e o notebook) |
 | 14 Limpeza agendada | ⬜ não iniciada |
 | 15 Temperatura da GPU NVIDIA | ⬜ não iniciada |
 | 16 Histórico em CSV e gráfico de 24 h | ⬜ não iniciada |

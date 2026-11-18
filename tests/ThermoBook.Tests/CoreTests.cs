@@ -449,6 +449,73 @@ public class SettingsPageTests
         Assert.Equal("em uso", pagina.HotkeyStatus.Text);
         Assert.Equal(HotkeyService.Default, pagina.Hotkey.Text);
     }
+
+    [Fact]
+    public void Modo_automatico_mostra_o_padrao_sem_salvar()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        Assert.Empty(salvas);
+        Assert.False(pagina.AutoOn.Checked);
+        Assert.Equal("Economia", pagina.OnBattery.SelectedItem);
+        Assert.Equal("Equilibrado", pagina.OnAc.SelectedItem);
+        Assert.Equal("ffmpeg → Frio", Assert.Single(pagina.Programs.Items));
+    }
+
+    [Fact]
+    public void Ligar_o_modo_automatico_grava_com_as_regras_de_exemplo()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.AutoOn.Checked = true;
+        var regras = salvas[^1].Auto!;
+        Assert.True(regras.Enabled);
+        Assert.Equal(new ProgramRule("ffmpeg", "Frio"), Assert.Single(regras.Programs!));
+    }
+
+    [Fact]
+    public void Modos_de_tomada_e_bateria_mudam_so_o_seu_campo_e_nenhum_vira_null()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.OnAc.SelectedItem = "Alto";
+        Assert.Equal(("Economia", "Alto"), (salvas[^1].Auto!.OnBattery, salvas[^1].Auto!.OnAc));
+        pagina.OnBattery.SelectedItem = "(nenhum)";
+        Assert.Null(salvas[^1].Auto!.OnBattery);
+        Assert.Equal("Alto", salvas[^1].Auto!.OnAc);
+    }
+
+    [Fact]
+    public void Adicionar_e_remover_programa()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.ProgramName.Text = "  HandBrake.exe ";
+        pagina.ProgramMode.SelectedItem = "Máximo";
+        pagina.AddProgram();
+        Assert.Equal(["ffmpeg → Frio", "HandBrake.exe → Máximo"], pagina.Programs.Items.Cast<string>());
+        Assert.Equal("", pagina.ProgramName.Text);
+
+        pagina.ProgramName.Text = "handbrake"; // mesmo programa: troca o modo em vez de duplicar
+        pagina.ProgramMode.SelectedItem = "Alto";
+        pagina.AddProgram();
+        Assert.Equal(["ffmpeg → Frio", "handbrake → Alto"], pagina.Programs.Items.Cast<string>());
+
+        pagina.Programs.SelectedIndex = 0;
+        pagina.RemoveProgram();
+        Assert.Equal(new ProgramRule("handbrake", "Alto"), Assert.Single(salvas[^1].Auto!.Programs!));
+    }
+
+    [Fact]
+    public void Nome_vazio_nao_adiciona_e_remover_sem_selecao_nao_faz_nada()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.ProgramName.Text = "   ";
+        pagina.AddProgram();
+        pagina.RemoveProgram();
+        Assert.Empty(salvas);
+    }
 }
 
 public class PillTests

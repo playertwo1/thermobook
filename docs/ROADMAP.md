@@ -66,10 +66,12 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 > Feito na 13.2: `TrayApp.RunAutoMode` no tique de 1 s (tomada: `PowerLineStatus`, "desconhecido" conta como tomada; quente = Frio automático ligado e `TempAlert.Active`) chama `AutoMode.Decide` e aplica pelo `ApplyMode` de sempre (salva o `Profile`, publica no `ModeStore`). `PollProcesses` roda num `System.Threading.Timer` de 5 s e só lista processos se houver regra de programa ligada; exceção ali é engolida (derrubaria o app). `ModeState.Auto` = modo atual igual ao que as regras querem: flyout "Modo: Economia · automático", título do painel rápido "Modo de energia · automático", leitor de tela da pílula e dica da bandeja. Ainda não há como ligar pela interface (13.3); só editando `"Auto"` no `settings.json`. **Falta verificar no notebook** (não rodei o app: mexeria no modo desta máquina): carregador, `ffmpeg`, troca manual e CPU.
 
 ### 13.3 Interface
-- [ ] Seção "Modo automático" na aba Configurações: ligar/desligar, modo na bateria, modo na tomada, lista de programas → modo (adicionar pelo nome do `.exe` ou escolhendo um processo aberto).
-- [ ] Item "Modo automático" (marcável) no menu da bandeja.
+- [x] Seção "Modo automático" na aba Configurações: ligar/desligar, modo na bateria, modo na tomada, lista de programas → modo (adicionar pelo nome do `.exe` ou escolhendo um processo aberto).
+- [x] Item "Modo automático" (marcável) no menu da bandeja.
 
 **Pronto quando:** cada controle muda na hora e sobrevive a fechar e abrir o app; dá para fazer tudo só com teclado.
+
+> Feito na 13.3 (marcado `[x]` só no código; falta verificar rodando o app): `SettingsPage` ganhou "Modo automático" (ligar, modo na bateria e na tomada com "(nenhum)", lista de programas, nome editável com a lista de processos abertos preenchida ao abrir, modo, Adicionar/Remover; Delete remove) e o menu da bandeja o item marcável "Modo automático". Tudo passa por `ChangeSettings`; o primeiro uso grava `AutoRules.Default` com a edição aplicada. Programa repetido (com ou sem `.exe`, sem diferença de maiúsculas) troca o modo em vez de duplicar. A ordem da lista é a de inclusão (sem subir/descer; para mudar a prioridade, remover e adicionar de novo). **Falta verificar:** aparência e nitidez em 150%/200%, teclado (Tab, setas, Delete) e a lista de processos.
 
 ---
 
