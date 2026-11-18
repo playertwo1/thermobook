@@ -1,6 +1,5 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
-using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using ThermoBook.Services;
 
@@ -19,11 +18,8 @@ internal readonly record struct PillState(int? Temp, int? Cpu, int? Gpu, int? Ra
 /// Cápsula flutuante (DESIGN.md). Não rouba o foco, fica fora da barra de tarefas e do Alt+Tab.
 /// Vertical (presa a borda lateral) ou horizontal (topo/base), com o mesmo layout (<see cref="PillLayout"/>).
 /// </summary>
-internal sealed partial class PillForm : Form
+internal sealed class PillForm : FloatingForm
 {
-    private const int WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
-    private const int WM_MOUSEACTIVATE = 0x21, MA_NOACTIVATE = 3;
-    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2;
     private static readonly Color Bg = Color.Black, Border = Color.FromArgb(0x24, 0x24, 0x24), Fg = Color.FromArgb(0xF4, 0xF4, 0xF6);
 
     private static readonly Color Muted = Color.FromArgb(0xA9, 0xAB, 0xB5), Track = Color.FromArgb(0x24, 0x24, 0x24),
@@ -39,6 +35,8 @@ internal sealed partial class PillForm : Form
     /// <summary>Posição final escolhida pelo usuário (monitor + posição) para salvar no settings.json.</summary>
     public event Action<string, PillPosition>? PlacementChanged;
     private PowerMode? _mode;
+    internal PowerMode? Mode => _mode;
+    internal bool Background => _background;
     private bool _background;
     private Orientation _orientation = Orientation.Vertical;
     private PillItem[] _items = [];
@@ -46,12 +44,6 @@ internal sealed partial class PillForm : Form
 
     public PillForm()
     {
-        FormBorderStyle = FormBorderStyle.None;
-        ShowInTaskbar = false;
-        TopMost = true;
-        StartPosition = FormStartPosition.Manual;
-        BackColor = Bg;
-        DoubleBuffered = true;
         // Tamanhos em pixels de 96 DPI escalados pelo DPI do monitor (PerMonitorV2 no csproj).
         float k = _scale = DeviceDpi / 96f;
         Relayout();
@@ -94,9 +86,7 @@ internal sealed partial class PillForm : Form
     {
         base.OnDpiChanged(e);
         _scale = e.DeviceDpiNew / 96f;
-        var old = Font;
-        Font = MakeFont();
-        old.Dispose();
+        Font = MakeFont(); // não descarta a anterior: o WinForms ainda pode referenciá-la (vazamento mínimo, só em troca de DPI)
         Relayout();
         Dock();
         Invalidate();
@@ -166,50 +156,6 @@ internal sealed partial class PillForm : Form
         _mode = mode;
         _background = background;
         Invalidate();
-    }
-
-    protected override bool ShowWithoutActivation => true;
-
-    protected override CreateParams CreateParams
-    {
-        get
-        {
-            var cp = base.CreateParams;
-            cp.ExStyle |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
-            return cp;
-        }
-    }
-
-    protected override void OnHandleCreated(EventArgs e)
-    {
-        base.OnHandleCreated(e);
-        int pref = DWMWCP_ROUND;
-        // Windows 10 não conhece o atributo (erro): plano B com Region.
-        if (DwmSetWindowAttribute(Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int)) != 0) ApplyRegion();
-    }
-
-    protected override void OnSizeChanged(EventArgs e)
-    {
-        base.OnSizeChanged(e);
-        if (IsHandleCreated && Region is not null) ApplyRegion();
-    }
-
-    private void ApplyRegion()
-    {
-        using var path = new GraphicsPath();
-        int d = Math.Min(Width, Height) / 2 * 2;
-        path.AddArc(0, 0, d, d, 180, 90);
-        path.AddArc(Width - d, 0, d, d, 270, 90);
-        path.AddArc(Width - d, Height - d, d, d, 0, 90);
-        path.AddArc(0, Height - d, d, d, 90, 90);
-        path.CloseFigure();
-        Region = new Region(path);
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == WM_MOUSEACTIVATE) { m.Result = MA_NOACTIVATE; return; } // clicar não tira o foco do app da frente
-        base.WndProc(ref m);
     }
 
     /// <summary>Chamado a cada segundo; só redesenha se algum valor arredondado mudou.</summary>
@@ -307,7 +253,4 @@ internal sealed partial class PillForm : Form
         public override AccessibleObject Parent => parent;
         public override Rectangle Bounds => form.RectangleToScreen(form._items[index].Row);
     }
-
-    [LibraryImport("dwmapi.dll")]
-    private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 }
