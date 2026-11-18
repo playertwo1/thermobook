@@ -96,9 +96,11 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 8.1: `DisplayService.TurnOff()` (espera 500 ms numa tarefa e faz `PostMessage` broadcast de `SC_MONITORPOWER`) e item "Desligar a tela" no menu da bandeja. É P/Invoke sem teste automatizado. Falta verificar rodando o app: clicar desliga a tela, mexer o mouse religa, o app não trava.
 
 ### 8.2 Atalho global
-- [ ] `RegisterHotKey` para desligar tela (padrão `Ctrl+Alt+Shift+D`, configurável no `settings.json`). Se o atalho já estiver em uso, avisa uma vez e segue sem ele.
+- [x] `RegisterHotKey` para desligar tela (padrão `Ctrl+Alt+Shift+D`, configurável no `settings.json`). Se o atalho já estiver em uso, avisa uma vez e segue sem ele.
 
 **Pronto quando:** o atalho funciona com outro app em foco.
+
+> Feito no PR da 8.2: `HotkeyService` (parser testado + `RegisterHotKey`) e `HotkeyWindow` no `TrayApp`; atalho em `settings.json` (`Hotkey`, vazio desliga). Se o registro falhar, avisa uma vez com balão e segue sem o atalho. Falta verificar rodando o app: o atalho desliga a tela com outro app em foco, e um atalho já em uso mostra o aviso.
 
 ### 8.3 Modo segundo plano
 - [ ] Ligar: guarda no `settings.json` os valores **atuais** de `LIDACTION`, `STANDBYIDLE`, `HIBERNATEIDLE` (AC e DC) do plano ativo e grava `0` (não fazer nada / nunca).
