@@ -6,7 +6,7 @@
 **Versão publicada:** v0.1.0 (fases 0–6)
 **Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1–11.3 feitas, falta rodar no notebook com UAC); fase 12 (12.1, a parte de código da 12.2 e a 12.3 feitas, falta verificar rodando o app e o fluxo instalar → desinstalar numa conta limpa)
 **Pré-lançamento:** v0.2.0-beta.1 (aprovada pelo dono em 2026-11-18)
-**Próxima subfase:** [12.4 Release](ROADMAP.md#124-release) — instalar a beta pela Release no notebook, verificar o que está pendente nas fases 7–12 e, com o dono aprovando, sair a `v0.2.0`.
+**Próxima subfase:** [12.4 Release](ROADMAP.md#124-release) — instalar a beta pela Release no notebook, seguir o [checklist de verificação](VERIFICACAO.md) e, com o dono aprovando, sair a `v0.2.0`.
 
 ## Progresso da v0.2
 

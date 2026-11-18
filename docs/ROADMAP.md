@@ -251,6 +251,8 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > O dono aprovou `v0.2.0-beta.1` (2026-11-18) para testar a v0.2 no notebook pela Release antes da `v0.2.0`. O `release.yml` passou a marcar tag com hífen como pré-lançamento.
 - [ ] Tag `v0.2.0` → `release.yml` publica o instalador; baixar da Release e instalar.
 
+> A `v0.2.0-beta.1` saiu como pré-lançamento com o instalador (workflow verde). O que falta conferir no notebook antes da `v0.2.0` está junto em [VERIFICACAO.md](VERIFICACAO.md).
+
 **Pronto quando:** o usuário instala a v0.2.0 pela Release e não precisa mais da pasta `Desktop\Bats` para nada do que está em [PRODUCT.md](../PRODUCT.md).
 
 ---
