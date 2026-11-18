@@ -147,12 +147,14 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 **Objetivo:** o app avisa quando sai versão nova na Release e, com um clique, se atualiza sem o usuário baixar nada à mão.
 
 ### 17.1 Verificar
-- [ ] `UpdateService` consulta a API de Releases do GitHub (`/releases/latest`, que ignora pré-lançamentos) com `HttpClient`, ao abrir e uma vez por dia, numa thread de fundo. Nenhum dado do usuário vai junto (User-Agent genérico `ThermoBook`).
-- [ ] Compara com a versão do app no formato `0.2.0-beta.1` (pré-lançamento é menor que a versão final).
-- [ ] Opção "Receber versões beta" (desligada; ligada passa a olhar também os pré-lançamentos) (A7).
-- [ ] Sem rede ou erro da API: silêncio, tenta no dia seguinte.
+- [x] `UpdateService` consulta a API de Releases do GitHub (`/releases/latest`, que ignora pré-lançamentos) com `HttpClient`, ao abrir e uma vez por dia, numa thread de fundo. Nenhum dado do usuário vai junto (User-Agent genérico `ThermoBook`).
+- [x] Compara com a versão do app no formato `0.2.0-beta.1` (pré-lançamento é menor que a versão final).
+- [x] Opção "Receber versões beta" (desligada; ligada passa a olhar também os pré-lançamentos) (A7).
+- [x] Sem rede ou erro da API: silêncio, tenta no dia seguinte.
 
 **Pronto quando:** testes cobrem a comparação de versões (`0.2.0-beta.1 < 0.2.0 < 0.2.1 < 0.3.0`), o JSON da API (arquivo de exemplo), escolher o asset `ThermoBook-Setup-*.exe` e Release sem instalador.
+
+> Feito na 17.1: `Services/UpdateService.cs` (`AppVersion`, `UpdateInfo`, `UpdateService.CheckAsync/Pick/Due`). Em vez de `/releases/latest`, uma só chamada a `/releases?per_page=10` e o filtro é local: serve igual para estável e beta, e a escolha da mais nova entre as que têm instalador fica testável. Regras: rascunho fora; pré-lançamento (flag da API **ou** sufixo `-` na tag) só com a opção beta; versão igual não conta; Release sem instalador `ThermoBook-Setup-*.exe` é pulada e a anterior que tiver é oferecida. Segurança: só aceita download `https://github.com/playertwo1/thermobook/releases/download/…` (repositório fixo, HTTPS); `digest` só vale no formato `sha256:<64 hex>` (senão `Sha256` fica nulo e a 17.2 deve se recusar a instalar). User-Agent `ThermoBook/1`, sem cabeçalho de autorização e sem dado da máquina; timeout de 10 s; 403/404/5xx, sem rede ou JSON quebrado = null, sem erro. A versão atual aceita o `+commit` que o .NET põe (`0.1.0+dd49748…`). `Due` diz se passou 1 dia (ou o relógio voltou). Conferi com `gh api` que a API real traz `digest` no formato esperado. **Ainda não está ligado ao app** (agendamento ao abrir e diário, `Settings.CheckUpdates/UpdateBeta`, aviso: 17.2). 375 testes. Não foi feita nenhuma chamada de rede pelo app.
 
 ### 17.2 Baixar e instalar
 - [ ] Aviso "ThermoBook X disponível" (balão uma vez por versão + item no menu da bandeja + linha em Configurações). Nada é baixado sem o clique.

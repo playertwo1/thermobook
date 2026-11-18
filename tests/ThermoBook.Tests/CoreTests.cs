@@ -2422,6 +2422,188 @@ public class ScheduledCleanupTests
     }
 }
 
+public class UpdateServiceTests
+{
+    private const string Dl = "https://github.com/playertwo1/thermobook/releases/download/";
+    private const string Hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789ABCDEF";
+
+    private static string Rel(string tag, bool pre = false, bool draft = false, string? asset = "default", string digest = "sha256:" + Hash)
+    {
+        string name = asset == "default" ? $"ThermoBook-Setup-{tag.TrimStart('v')}.exe" : asset ?? "";
+        string assets = asset is null ? "[]" :
+            $$"""[{ "name": "{{name}}", "browser_download_url": "{{Dl}}{{tag}}/{{name}}", "size": 141000000, "digest": "{{digest}}" }]""";
+        return $$"""{ "tag_name": "{{tag}}", "prerelease": {{pre.ToString().ToLower()}}, "draft": {{draft.ToString().ToLower()}}, "html_url": "https://github.com/playertwo1/thermobook/releases/tag/{{tag}}", "assets": {{assets}} }""";
+    }
+
+    private static string List(params string[] releases) => "[" + string.Join(",", releases) + "]";
+
+    private static AppVersion V(string s) => AppVersion.Parse(s)!;
+
+    [Theory]
+    [InlineData("0.2.0-beta.1", "0.2.0")]
+    [InlineData("0.2.0", "0.2.1")]
+    [InlineData("0.2.1", "0.3.0")]
+    [InlineData("0.9.0", "0.10.0")]       // numérico, não por texto
+    [InlineData("0.3.0", "1.0.0")]
+    [InlineData("0.2.0-beta.1", "0.2.0-beta.2")]
+    [InlineData("0.2.0-beta.2", "0.2.0-beta.10")]
+    [InlineData("0.2.0-alpha", "0.2.0-beta")]
+    [InlineData("0.2.0-1", "0.2.0-alpha")] // número < texto (SemVer)
+    [InlineData("0.2.0-beta", "0.2.0-beta.1")]
+    public void Ordem_das_versoes(string menor, string maior)
+    {
+        Assert.True(V(menor) < V(maior));
+        Assert.True(V(maior) > V(menor));
+    }
+
+    [Fact]
+    public void Versao_aceita_v_e_o_commit_do_dotnet_e_recusa_lixo()
+    {
+        Assert.Equal(V("0.1.0"), V("v0.1.0"));
+        Assert.Equal(V("0.1.0"), V("0.1.0+dd4974863a6043177b7a4c55f5dc3a2451e0b771"));
+        Assert.Equal("0.2.0-beta.1", V("v0.2.0-beta.1").ToString());
+        foreach (var ruim in new[] { "", "abc", "1.2", "1.2.3.4", "v", "latest", "1.2.x" }) Assert.Null(AppVersion.Parse(ruim));
+        Assert.Null(AppVersion.Parse(null));
+    }
+
+    [Fact]
+    public void Acha_a_mais_nova_com_instalador_e_o_digest_em_minusculo()
+    {
+        var info = UpdateService.Pick(List(Rel("v0.2.1"), Rel("v0.3.0"), Rel("v0.2.0")), V("0.2.0"), includeBeta: false)!;
+        Assert.Equal("v0.3.0", info.Tag);
+        Assert.Equal(V("0.3.0"), info.Version);
+        Assert.Equal("ThermoBook-Setup-0.3.0.exe", info.FileName);
+        Assert.Equal(Dl + "v0.3.0/ThermoBook-Setup-0.3.0.exe", info.DownloadUrl);
+        Assert.Equal(141000000, info.Size);
+        Assert.Equal(Hash.ToLowerInvariant(), info.Sha256);
+        Assert.EndsWith("/tag/v0.3.0", info.PageUrl);
+    }
+
+    [Fact]
+    public void Sem_versao_mais_nova_nao_ha_atualizacao()
+    {
+        Assert.Null(UpdateService.Pick(List(Rel("v0.2.0"), Rel("v0.1.0")), V("0.2.0"), false)); // igual não conta
+        Assert.Null(UpdateService.Pick("[]", V("0.2.0"), false));
+    }
+
+    [Fact]
+    public void Pre_lancamento_so_com_a_opcao_ligada()
+    {
+        string json = List(Rel("v0.3.0-beta.1", pre: true), Rel("v0.2.0"));
+        Assert.Null(UpdateService.Pick(json, V("0.2.0"), includeBeta: false));
+        Assert.Equal("v0.3.0-beta.1", UpdateService.Pick(json, V("0.2.0"), includeBeta: true)!.Tag);
+    }
+
+    [Fact]
+    public void Beta_nao_oferece_a_beta_anterior_e_a_final_vence_a_beta_da_mesma_versao()
+    {
+        Assert.Equal("v0.2.0", UpdateService.Pick(List(Rel("v0.2.0"), Rel("v0.2.0-beta.2", pre: true)), V("0.2.0-beta.1"), true)!.Tag);
+        Assert.Null(UpdateService.Pick(List(Rel("v0.2.0-beta.1", pre: true)), V("0.2.0-beta.1"), true));
+    }
+
+    [Fact]
+    public void Tag_com_hifen_sem_flag_de_pre_lancamento_tambem_conta_como_beta()
+    {
+        Assert.Null(UpdateService.Pick(List(Rel("v0.3.0-rc.1", pre: false)), V("0.2.0"), includeBeta: false));
+    }
+
+    [Fact]
+    public void Rascunho_e_release_sem_instalador_ou_com_instalador_estranho_sao_ignorados()
+    {
+        Assert.Null(UpdateService.Pick(List(Rel("v0.3.0", draft: true)), V("0.2.0"), true));
+        Assert.Null(UpdateService.Pick(List(Rel("v0.3.0", asset: null)), V("0.2.0"), true));
+        Assert.Null(UpdateService.Pick(List(Rel("v0.3.0", asset: "ThermoBook-source.zip")), V("0.2.0"), true));
+        Assert.Null(UpdateService.Pick(List(Rel("v0.3.0", asset: "evil.exe")), V("0.2.0"), true));
+        // a mais nova não tem instalador: oferece a anterior que tem
+        Assert.Equal("v0.2.5", UpdateService.Pick(List(Rel("v0.3.0", asset: null), Rel("v0.2.5")), V("0.2.0"), false)!.Tag);
+    }
+
+    [Theory]
+    [InlineData("http://github.com/playertwo1/thermobook/releases/download/v0.3.0/ThermoBook-Setup-0.3.0.exe")]  // sem HTTPS
+    [InlineData("https://evil.example/playertwo1/thermobook/releases/download/v0.3.0/ThermoBook-Setup-0.3.0.exe")]
+    [InlineData("https://github.com/outro/repo/releases/download/v0.3.0/ThermoBook-Setup-0.3.0.exe")]
+    [InlineData("https://github.com/playertwo1/thermobook-evil/releases/download/v0.3.0/ThermoBook-Setup-0.3.0.exe")]
+    public void Download_so_do_proprio_repositorio_por_https(string url)
+    {
+        string json = $$"""[{ "tag_name": "v0.3.0", "prerelease": false, "draft": false, "html_url": "x", "assets": [{ "name": "ThermoBook-Setup-0.3.0.exe", "browser_download_url": "{{url}}", "size": 1 }] }]""";
+        Assert.Null(UpdateService.Pick(json, V("0.2.0"), true));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("md5:abc")]
+    [InlineData("sha256:curto")]
+    [InlineData("sha256:zzzz456789abcdef0123456789abcdef0123456789abcdef0123456789ABCDEF")]
+    public void Digest_ausente_ou_invalido_vira_null_mas_a_release_continua(string digest)
+    {
+        var info = UpdateService.Pick(List(Rel("v0.3.0", digest: digest)), V("0.2.0"), false)!;
+        Assert.Null(info.Sha256);
+    }
+
+    [Theory]
+    [InlineData("{ \"message\": \"Not Found\" }")] // objeto no lugar de lista
+    [InlineData("[1, \"x\", null, {}]")]
+    [InlineData("[{ \"tag_name\": 5 }]")]
+    [InlineData("[{ \"tag_name\": \"v9.0.0\", \"assets\": \"x\" }]")]
+    public void Resposta_estranha_nao_lanca_e_nao_oferece_nada(string json) => Assert.Null(UpdateService.Pick(json, V("0.2.0"), true));
+
+    private sealed class Fake(Func<HttpRequestMessage, HttpResponseMessage> reply) : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests = [];
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(reply(request));
+        }
+    }
+
+    [Fact]
+    public async Task Consulta_a_API_com_user_agent_generico_e_devolve_a_atualizacao()
+    {
+        var fake = new Fake(_ => new(System.Net.HttpStatusCode.OK) { Content = new StringContent(List(Rel("v0.3.0"))) });
+        var info = await UpdateService.CheckAsync("0.2.0+abc123", false, fake);
+        Assert.Equal("v0.3.0", info!.Tag);
+        var req = Assert.Single(fake.Requests);
+        Assert.Equal(UpdateService.ReleasesUrl, req.RequestUri!.ToString());
+        Assert.Equal("ThermoBook/1", req.Headers.UserAgent.ToString()); // nada do usuário, da máquina ou da versão instalada
+        Assert.Null(req.Headers.Authorization);
+    }
+
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.Forbidden)]  // limite de consultas
+    [InlineData(System.Net.HttpStatusCode.NotFound)]
+    [InlineData(System.Net.HttpStatusCode.InternalServerError)]
+    public async Task Erro_da_API_e_silencio(System.Net.HttpStatusCode status)
+    {
+        Assert.Null(await UpdateService.CheckAsync("0.2.0", true, new Fake(_ => new(status))));
+    }
+
+    [Fact]
+    public async Task Sem_rede_ou_json_quebrado_e_silencio()
+    {
+        Assert.Null(await UpdateService.CheckAsync("0.2.0", true, new Fake(_ => throw new HttpRequestException("sem rede"))));
+        Assert.Null(await UpdateService.CheckAsync("0.2.0", true, new Fake(_ => new(System.Net.HttpStatusCode.OK) { Content = new StringContent("{ nao e json") })));
+    }
+
+    [Fact]
+    public async Task Versao_atual_ilegivel_nem_chama_a_rede()
+    {
+        var fake = new Fake(_ => new(System.Net.HttpStatusCode.OK));
+        Assert.Null(await UpdateService.CheckAsync("dev", true, fake));
+        Assert.Empty(fake.Requests);
+    }
+
+    [Fact]
+    public void Verifica_ao_abrir_e_depois_uma_vez_por_dia()
+    {
+        var agora = new DateTime(2026, 11, 18, 12, 0, 0);
+        Assert.True(UpdateService.Due(null, agora));
+        Assert.False(UpdateService.Due(agora.AddHours(-23), agora));
+        Assert.True(UpdateService.Due(agora.AddHours(-24), agora));
+        Assert.True(UpdateService.Due(agora.AddHours(2), agora)); // relógio voltou: não fica sem verificar
+    }
+}
+
 public class HistoryWriterTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "thermobook-tests", "hist-" + Guid.NewGuid().ToString("N"));
