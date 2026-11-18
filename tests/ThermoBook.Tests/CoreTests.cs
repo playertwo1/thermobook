@@ -1328,8 +1328,12 @@ public class ElevatedTaskTests
 {
     private static readonly string Report = Path.Combine(Path.GetTempPath(), "ThermoBook-teste.json");
 
+    // Tarefa falsa: os testes nunca podem rodar a limpeza de verdade na máquina de quem testa.
+    static ElevatedTaskTests() => ElevatedTask.Tasks["teste"] = () => new(TaskOutcome.Ok, "feito");
+
     [Theory]
     [InlineData("limpeza")]
+    [InlineData("limpeza-lixeira")]
     [InlineData("otimizacao")]
     public void Aceita_so_tarefas_conhecidas(string task) =>
         Assert.Equal(new ElevatedTask.Args(task, Report), ElevatedTask.Parse(["--tarefa", task, "--relatorio", Report]));
@@ -1362,7 +1366,7 @@ public class ElevatedTaskTests
         File.WriteAllText(path, "original");
         try
         {
-            Assert.Equal(3, ElevatedTask.RunElevated(["--tarefa", "limpeza", "--relatorio", path]));
+            Assert.Equal(3, ElevatedTask.RunElevated(["--tarefa", "teste", "--relatorio", path]));
             Assert.Equal("original", File.ReadAllText(path));
         }
         finally { File.Delete(path); }
@@ -1388,7 +1392,7 @@ public class ElevatedTaskTests
     public async Task Le_o_relatorio_do_processo_elevado_e_apaga_o_arquivo()
     {
         string? report = null;
-        var r = await ElevatedTask.LaunchAsync("limpeza", psi =>
+        var r = await ElevatedTask.LaunchAsync("teste", psi =>
         {
             Assert.Equal("runas", psi.Verb);
             string[] args = [.. psi.ArgumentList];
@@ -1396,7 +1400,7 @@ public class ElevatedTaskTests
             ElevatedTask.RunElevated(args); // faz o papel do processo elevado
             return System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c exit 0") { CreateNoWindow = true });
         });
-        Assert.Equal(ElevatedTask.Tasks["limpeza"](), r);
+        Assert.Equal(new TaskReport(TaskOutcome.Ok, "feito"), r);
         Assert.False(File.Exists(report));
     }
 
@@ -1407,4 +1411,107 @@ public class ElevatedTaskTests
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c exit 0") { CreateNoWindow = true }));
         Assert.Equal(new TaskReport(TaskOutcome.Failed, "A tarefa terminou sem relatório."), r);
     }
+}
+
+public class CleanupTests
+{
+    private static string NewDir()
+    {
+        string d = Path.Combine(Path.GetTempPath(), $"ThermoBook-limpeza-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(d);
+        return d;
+    }
+
+    [Fact]
+    public void Apaga_o_conteudo_e_mantem_a_pasta_raiz()
+    {
+        string root = NewDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "a.tmp"), "x");
+            Directory.CreateDirectory(Path.Combine(root, "sub", "vazia"));
+            File.WriteAllText(Path.Combine(root, "sub", "b.tmp"), "y");
+            var ro = Path.Combine(root, "somente-leitura.tmp");
+            File.WriteAllText(ro, "z");
+            File.SetAttributes(ro, FileAttributes.ReadOnly);
+
+            Assert.True(Cleanup.DeleteContents(root) >= 4);
+            Assert.True(Directory.Exists(root));
+            Assert.Empty(Directory.GetFileSystemEntries(root));
+            Assert.Equal(0, Cleanup.DeleteContents(root)); // segunda vez: já estava limpo
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void Nao_toca_em_nada_fora_da_pasta_listada()
+    {
+        string root = NewDir(), outside = NewDir();
+        try
+        {
+            string keep = Path.Combine(outside, "fica.txt");
+            File.WriteAllText(keep, "x");
+            File.WriteAllText(Path.Combine(root, "vai.tmp"), "x");
+            Cleanup.DeleteContents(root);
+            Assert.True(File.Exists(keep));
+        }
+        finally { Directory.Delete(root, true); Directory.Delete(outside, true); }
+    }
+
+    [Fact]
+    public void Item_em_uso_e_pulado_sem_erro()
+    {
+        string root = NewDir();
+        try
+        {
+            string busy = Path.Combine(root, "em-uso.tmp");
+            using (new FileStream(busy, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
+            {
+                File.WriteAllText(Path.Combine(root, "livre.tmp"), "x");
+                Cleanup.DeleteContents(root);
+                Assert.True(File.Exists(busy));
+                Assert.False(File.Exists(Path.Combine(root, "livre.tmp")));
+            }
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void Junction_e_removida_sem_apagar_o_destino()
+    {
+        string root = NewDir(), target = NewDir();
+        try
+        {
+            string keep = Path.Combine(target, "fica.txt");
+            File.WriteAllText(keep, "x");
+            Directory.CreateSymbolicLink(Path.Combine(root, "link"), target);
+            Cleanup.DeleteContents(root);
+            Assert.Empty(Directory.GetFileSystemEntries(root));
+            Assert.True(File.Exists(keep));
+        }
+        catch (UnauthorizedAccessException) { /* sem permissão para criar link simbólico nesta máquina */ }
+        finally { Directory.Delete(root, true); Directory.Delete(target, true); }
+    }
+
+    [Theory]
+    [InlineData(@"C:")]
+    [InlineData(@"C:")]
+    [InlineData(@"relativa")]
+    [InlineData(@"")]
+    public void Recusa_raiz_de_disco_e_caminho_relativo(string root) => Assert.Equal(0, Cleanup.DeleteContents(root));
+
+    [Fact]
+    public void Lista_padrao_so_tem_pastas_de_temporarios_e_nenhuma_raiz()
+    {
+        var roots = Cleanup.DefaultRoots();
+        Assert.Equal(7, roots.Count);
+        Assert.All(roots, r => Assert.NotNull(Path.GetDirectoryName(r.TrimEnd('\\'))));
+    }
+
+    [Theory]
+    [InlineData(0L, "Já estava limpo.")]
+    [InlineData(-5L, "Já estava limpo.")]
+    [InlineData(52_428_800L, "50 MB liberados")]
+    [InlineData(1_288_490_189L, "1,2 GB liberados")]
+    public void Texto_do_resultado(long bytes, string expected) => Assert.Equal(expected, Cleanup.Describe(bytes));
 }

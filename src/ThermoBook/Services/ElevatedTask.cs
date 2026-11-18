@@ -21,7 +21,8 @@ internal static class ElevatedTask
     /// <summary>Lista fechada de tarefas aceitas. A 11.2 e a 11.3 trocam os corpos.</summary>
     internal static readonly Dictionary<string, Func<TaskReport>> Tasks = new(StringComparer.Ordinal)
     {
-        ["limpeza"] = () => new(TaskOutcome.Failed, "A limpeza ainda não foi implementada."),
+        ["limpeza"] = () => Cleanup.Run(emptyRecycleBin: false),
+        ["limpeza-lixeira"] = () => Cleanup.Run(emptyRecycleBin: true), // a Lixeira não tem volta: só com confirmação na interface
         ["otimizacao"] = () => new(TaskOutcome.Failed, "A otimização ainda não foi implementada."),
     };
 
