@@ -246,7 +246,9 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito na 12.3: README reescrito para a v0.2 com `docs/img/pilula.png` (desenhada pelo `OnPaint` real da pílula a 200%, com os cantos do notch aplicados na composição). PRODUCT: o que a v0.2 entrega e limites novos (.exe de ~135 MB, Widgets, apps removidos). DESIGN: cores do ponto do modo, painel rápido sem ícones e sem engrenagem, menu do botão direito como é de fato, atualização a cada segundo. A imagem não é um print do app rodando.
 
 ### 12.4 Release
-- [ ] Propor o número da versão e **esperar aprovação do dono** antes de criar a tag.
+- [x] Propor o número da versão e **esperar aprovação do dono** antes de criar a tag.
+
+> O dono aprovou `v0.2.0-beta.1` (2026-11-18) para testar a v0.2 no notebook pela Release antes da `v0.2.0`. O `release.yml` passou a marcar tag com hífen como pré-lançamento.
 - [ ] Tag `v0.2.0` → `release.yml` publica o instalador; baixar da Release e instalar.
 
 **Pronto quando:** o usuário instala a v0.2.0 pela Release e não precisa mais da pasta `Desktop\Bats` para nada do que está em [PRODUCT.md](../PRODUCT.md).
