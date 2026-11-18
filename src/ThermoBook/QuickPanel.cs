@@ -13,6 +13,7 @@ internal sealed class QuickPanel : FloatingForm
 
     private readonly Dictionary<PowerMode, Button> _modeButtons = [];
     private readonly Button _background;
+    private readonly Label _modeCaption;
     private readonly ToolTip _tip = new();
 
     protected override bool CanActivate => true;
@@ -34,7 +35,8 @@ internal sealed class QuickPanel : FloatingForm
         const int pad = 10, gap = 4, rowH = 36;
         int inner = 280 - 2 * pad;
         var small = new Font(Font.FontFamily, 12, GraphicsUnit.Pixel); // rótulos longos das ações cabem em 84 px
-        Controls.Add(Caption("Modo de energia", pad, 10));
+        _modeCaption = Caption("Modo de energia", pad, 10);
+        Controls.Add(_modeCaption);
 
         int bw = (inner - 2 * gap) / 3;
         for (int i = 0; i < PowerService.Modes.Length; i++)
@@ -86,9 +88,10 @@ internal sealed class QuickPanel : FloatingForm
         return b;
     }
 
-    /// <summary>Marca o modo atual (null = Personalizado) e o estado do segundo plano.</summary>
-    public void SetState(PowerMode? current, bool background)
+    /// <summary>Marca o modo atual (null = Personalizado), o estado do segundo plano e se o modo veio do modo automático.</summary>
+    public void SetState(PowerMode? current, bool background, bool auto = false)
     {
+        _modeCaption.Text = auto ? "Modo de energia · automático" : "Modo de energia";
         foreach (var (m, b) in _modeButtons) Highlight(b, m == current);
         _background.Text = background ? "Segundo\nplano ligado" : "Segundo\nplano desligado";
         Highlight(_background, background);

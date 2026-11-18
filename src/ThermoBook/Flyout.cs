@@ -12,7 +12,7 @@ internal static class FlyoutText
 
     private static string Pct(double v) => double.IsFinite(v) ? $"{v:0}%" : "–";
 
-    public static List<FlyoutLine> Lines(Snapshot s, PowerMode? mode, bool background)
+    public static List<FlyoutLine> Lines(Snapshot s, PowerMode? mode, bool background, bool auto = false)
     {
         var l = new List<FlyoutLine>();
         if (s.Temps.Length == 0) l.Add(new("Temperatura: indisponível"));
@@ -27,7 +27,7 @@ internal static class FlyoutText
         l.Add(new($"GPU: 3D {Pct(s.Gpu3D)} · vídeo {Pct(s.GpuVideo)}"));
         l.Add(new(s.RamTotal > 0 ? $"RAM: {MainForm.Bytes(s.RamUsed)} de {MainForm.Bytes(s.RamTotal)}" : "RAM: indisponível"));
         l.Add(new($"Disco: {Pct(s.DiskActive)}"));
-        l.Add(new($"Modo: {mode?.Name ?? "Personalizado"}"));
+        l.Add(new($"Modo: {mode?.Name ?? "Personalizado"}{(auto ? " · automático" : "")}"));
         l.Add(new($"Segundo plano: {(background ? "ligado" : "desligado")}"));
         return l;
     }
@@ -129,7 +129,7 @@ internal sealed class PillFlyout : IDisposable
     {
         if (_latest is null) return;
         float scale = _pill.DeviceDpi / 96f;
-        _form.SetLines(FlyoutText.Lines(_latest, _pill.Mode, _pill.Background), scale);
+        _form.SetLines(FlyoutText.Lines(_latest, _pill.Mode, _pill.Background, _pill.Auto), scale);
         var area = Screen.FromControl(_pill).WorkingArea;
         _form.Location = FlyoutPlacement.Place(_pill.Bounds, _pill.PillOrientation, _form.Size, area, (int)Math.Round(GapLogical * scale));
     }

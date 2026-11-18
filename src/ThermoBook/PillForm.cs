@@ -162,14 +162,17 @@ internal sealed class PillForm : FloatingForm
         ClientSize = size;
     }
 
-    /// <summary>Modo atual (null = Personalizado) e se o segundo plano está ligado.</summary>
-    public void SetMode(PowerMode? mode, bool background)
+    /// <summary>Modo atual (null = Personalizado), se o segundo plano está ligado e se o modo veio do modo automático.</summary>
+    public void SetMode(PowerMode? mode, bool background, bool auto = false)
     {
+        Auto = auto; // só texto (flyout e leitor de tela): não muda o desenho
         if (_mode == mode && _background == background) return;
         _mode = mode;
         _background = background;
         Invalidate();
     }
+
+    internal bool Auto { get; private set; }
 
     /// <summary>Chamado a cada segundo; só redesenha se algum valor arredondado mudou.</summary>
     public void Push(Snapshot s)
@@ -237,13 +240,13 @@ internal sealed class PillForm : FloatingForm
     };
 
     /// <summary>Texto lido pelo leitor de tela para cada linha.</summary>
-    internal static string RowName(int index, PillState? st, PowerMode? mode, bool background)
+    internal static string RowName(int index, PillState? st, PowerMode? mode, bool background, bool auto = false)
     {
         int? v = index switch { PillLayout.Temp => st?.Temp, PillLayout.Cpu => st?.Cpu, PillLayout.Gpu => st?.Gpu, PillLayout.Ram => st?.Ram, _ => null };
         return index switch
         {
             PillLayout.Temp => $"Temperatura: {(v is { } t ? $"{t} graus" : "indisponível")}",
-            PillLayout.Mode => $"Modo de energia: {mode?.Name ?? "Personalizado"}{(background ? ", segundo plano ligado" : "")}",
+            PillLayout.Mode => $"Modo de energia: {mode?.Name ?? "Personalizado"}{(auto ? ", automático" : "")}{(background ? ", segundo plano ligado" : "")}",
             _ => $"{RowNames[index]}: {(v is { } p ? $"{p} por cento" : "indisponível")}",
         };
     }
@@ -258,7 +261,7 @@ internal sealed class PillForm : FloatingForm
 
     private sealed class RowAccessible(AccessibleObject parent, PillForm form, int index) : AccessibleObject
     {
-        public override string Name { get => RowName(index, form._state, form._mode, form._background); set { } }
+        public override string Name { get => RowName(index, form._state, form._mode, form._background, form.Auto); set { } }
         public override AccessibleRole Role => AccessibleRole.StaticText;
         public override AccessibleObject Parent => parent;
         public override Rectangle Bounds => form.RectangleToScreen(form._items[index].Row);

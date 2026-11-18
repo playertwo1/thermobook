@@ -22,6 +22,9 @@ internal sealed class AutoMode
     private PowerMode? _last;
     private bool _active;
 
+    /// <summary>O modo que as regras querem desde a última <see cref="Decide"/>; null se desligado ou sem regra.</summary>
+    public PowerMode? Wanted => _active ? _last : null;
+
     /// <summary>O modo que as regras querem agora, ou null se nenhuma regra vale.</summary>
     public static PowerMode? Target(AutoRules rules, bool onAc, bool hot, IEnumerable<string> running)
     {

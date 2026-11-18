@@ -36,6 +36,9 @@ internal sealed class TrayApp : ApplicationContext
     private uint? _turbo;
     private int _ticks;
     private bool _alertBalloonShown; // o clique no balão só troca de perfil se o balão for o do alerta
+    private readonly AutoMode _auto = new();
+    private readonly System.Threading.Timer _processTimer;
+    private volatile string[] _running = []; // nomes dos processos abertos, lidos a cada 5 s fora da thread da interface
 
     public TrayApp(SettingsStore store, WaitHandle openPanelSignal, bool showPanel)
     {
@@ -120,6 +123,7 @@ internal sealed class TrayApp : ApplicationContext
             ShowError($"Não consegui registrar o atalho {_settings.Hotkey} (já em uso ou inválido). O ThermoBook segue sem ele.");
         RefreshPowerState(syncControls: true);
         UpdatePillVisibility();
+        _processTimer = new System.Threading.Timer(_ => PollProcesses(), null, 0, 5000);
         _timer.Tick += (_, _) => OnTick();
         _timer.Start();
         if (showPanel) ShowPanel();
@@ -257,7 +261,7 @@ internal sealed class TrayApp : ApplicationContext
         {
             uint turbo = PowerService.GetTurbo(), limit = PowerService.GetLimit();
             var current = PowerService.Current();
-            _modeState.Set(new ModeState(current, turbo, limit, BackgroundMode.IsOn(_settings)));
+            _modeState.Set(new ModeState(current, turbo, limit, BackgroundMode.IsOn(_settings), current is not null && current == _auto.Wanted));
             // Sem mudança o evento não dispara; ao abrir o painel ou depois de aplicar, os controles precisam acompanhar mesmo assim.
             if (syncControls) _panel.ShowPower(turbo, limit, current, true);
         }
@@ -274,11 +278,37 @@ internal sealed class TrayApp : ApplicationContext
     {
         foreach (var (p, item) in _profileItems) item.Checked = p == s.Mode;
         _background.Checked = s.Background;
-        _profileLabel = s.Mode?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(s.Turbo, s.Turbo.ToString())}, {s.Limit}%)";
+        _profileLabel = (s.Mode?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(s.Turbo, s.Turbo.ToString())}, {s.Limit}%)")
+            + (s.Auto ? " · automático" : "");
         _turbo = s.Turbo;
         _panel.ShowPower(s.Turbo, s.Limit, s.Mode, syncControls: false);
-        _pill.SetMode(s.Mode, s.Background);
-        _quick.SetState(s.Mode, s.Background);
+        _pill.SetMode(s.Mode, s.Background, s.Auto);
+        _quick.SetState(s.Mode, s.Background, s.Auto);
+    }
+
+    /// <summary>Thread do timer: só lista processos se alguma regra de programa estiver valendo.</summary>
+    private void PollProcesses()
+    {
+        try
+        {
+            if (_settings.Auto is not { Enabled: true, Programs.Count: > 0 }) { _running = []; return; }
+            var processes = Process.GetProcesses();
+            try { _running = processes.Select(p => p.ProcessName).ToArray(); }
+            finally { foreach (var p in processes) p.Dispose(); }
+        }
+        catch (Exception ex) { Debug.WriteLine(ex); } // exceção no timer derrubaria o app
+    }
+
+    /// <summary>Aplica o modo que as regras pedem, só quando o pedido muda (troca manual vale até lá).</summary>
+    private void RunAutoMode()
+    {
+        // Unknown (desktop sem bateria) conta como tomada.
+        bool onAc = SystemInformation.PowerStatus.PowerLineStatus != PowerLineStatus.Offline;
+        bool hot = _settings.AutoCool && _alert.Active;
+        var before = _auto.Wanted;
+        var mode = _auto.Decide(_settings.Auto, onAc, hot, _running);
+        if (mode is not null && _modeState.State?.Mode != mode) ApplyMode(mode);
+        else if (_auto.Wanted != before) RefreshPowerState(); // só o selo "automático" muda
     }
 
     /// <summary>Pílula visível se o usuário quer e nenhum app em tela cheia (jogo, vídeo, apresentação) está na frente.</summary>
@@ -305,6 +335,7 @@ internal sealed class TrayApp : ApplicationContext
         // Só atualiza o que é mostrado (ex.: modo trocado nas Configurações do Windows vira "Personalizado"); a reaplicação vem do PlanWatcher.
         if (++_ticks % 5 == 0) RefreshPowerState();
         if (_ticks % 2 == 0) UpdatePillVisibility();
+        RunAutoMode();
         UpdateIcon(force: false);
 
         var s = _sensors.Latest;
@@ -360,6 +391,7 @@ internal sealed class TrayApp : ApplicationContext
     protected override void ExitThreadCore()
     {
         _timer.Stop();
+        _processTimer.Dispose();
         _planWatcher.Dispose();
         _hotkeyWindow.Dispose();
         _openPanelWait.Unregister(null);

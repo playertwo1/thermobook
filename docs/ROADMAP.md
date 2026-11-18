@@ -57,11 +57,13 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 > Feito na 13.1: `AutoMode` (`Services/AutoMode.cs`) com `Target` (o modo que as regras querem) e `Decide`, que só devolve um modo quando o desejado muda. Por isso não há "pausa" explícita: uma troca manual, venha de onde vier, fica até as regras pedirem outro modo; mudar de condição sem mudar o modo desejado (ex.: tirar da tomada com o `ffmpeg` aberto) não desfaz a troca manual. Programa casa pelo nome sem diferença de maiúsculas e com ou sem `.exe`; modo desconhecido numa regra é ignorado. `Settings.Auto` nulo = nunca configurado (desligado; a interface mostra `AutoRules.Default`). `TempAlert.Active` diz se o alerta está valendo (até esfriar 5 °C abaixo do limite), para a 13.2 passar como "quente". 18 testes novos (280 no total).
 
 ### 13.2 Ligar ao app
-- [ ] Energia: `SystemEvents.PowerModeChanged` + `SystemInformation.PowerStatus` (sem consulta repetida).
-- [ ] Programas: `Process.GetProcesses()` a cada 5 s numa thread de fundo, comparando só os nomes das regras (sem o evento de processo do WMI, que pede administrador).
-- [ ] O modo escolhido passa pelo `ModeStore` (único lugar do estado); pílula, flyout, painel rápido e bandeja mostram que o modo veio de uma regra ("Economia · automático").
+- [x] Energia: `SystemInformation.PowerStatus` lido no tique de 1 s da interface (uma chamada barata ao Windows; mais simples que assinar `SystemEvents`).
+- [x] Programas: `Process.GetProcesses()` a cada 5 s numa thread de fundo, comparando só os nomes das regras (sem o evento de processo do WMI, que pede administrador).
+- [x] O modo escolhido passa pelo `ModeStore` (único lugar do estado); pílula, flyout, painel rápido e bandeja mostram que o modo veio de uma regra ("Economia · automático").
 
-**Pronto quando:** no notebook, tirar o carregador troca para Economia em até ~2 s e pôr de volta troca para Equilibrado; abrir o `ffmpeg` vai para Frio e fechá-lo volta; uma troca manual não é desfeita até a próxima mudança de condição; CPU do app continua abaixo de ~1%.
+**Pronto quando:** no notebook, tirar o carregador troca para Economia em até ~2 s e pôr de volta troca para Equilibrado; abrir o `ffmpeg` vai para Frio e fechá-lo volta; uma troca manual não é desfeita até as regras pedirem outro modo; CPU do app continua abaixo de ~1%.
+
+> Feito na 13.2: `TrayApp.RunAutoMode` no tique de 1 s (tomada: `PowerLineStatus`, "desconhecido" conta como tomada; quente = Frio automático ligado e `TempAlert.Active`) chama `AutoMode.Decide` e aplica pelo `ApplyMode` de sempre (salva o `Profile`, publica no `ModeStore`). `PollProcesses` roda num `System.Threading.Timer` de 5 s e só lista processos se houver regra de programa ligada; exceção ali é engolida (derrubaria o app). `ModeState.Auto` = modo atual igual ao que as regras querem: flyout "Modo: Economia · automático", título do painel rápido "Modo de energia · automático", leitor de tela da pílula e dica da bandeja. Ainda não há como ligar pela interface (13.3); só editando `"Auto"` no `settings.json`. **Falta verificar no notebook** (não rodei o app: mexeria no modo desta máquina): carregador, `ffmpeg`, troca manual e CPU.
 
 ### 13.3 Interface
 - [ ] Seção "Modo automático" na aba Configurações: ligar/desligar, modo na bateria, modo na tomada, lista de programas → modo (adicionar pelo nome do `.exe` ou escolhendo um processo aberto).

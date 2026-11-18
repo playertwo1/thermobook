@@ -3,7 +3,8 @@ using ThermoBook.Services;
 namespace ThermoBook;
 
 /// <summary>Estado de energia que a interface mostra: modo atual (null = Personalizado), turbo/limite e segundo plano.</summary>
-internal readonly record struct ModeState(PowerMode? Mode, uint Turbo, uint Limit, bool Background);
+/// <param name="Auto">O modo atual é o que o modo automático quer (fase 13).</param>
+internal readonly record struct ModeState(PowerMode? Mode, uint Turbo, uint Limit, bool Background, bool Auto = false);
 
 /// <summary>
 /// Único lugar do estado do modo. Só o <c>TrayApp</c> lê o sistema e grava aqui; bandeja, pílula, painel rápido e painel completo

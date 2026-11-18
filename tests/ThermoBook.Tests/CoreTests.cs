@@ -558,6 +558,8 @@ public class PillTests
         Assert.Equal("Modo de energia: Personalizado", PillForm.RowName(PillLayout.Mode, st, null, false));
         Assert.Equal("Modo de energia: Frio, segundo plano ligado",
             PillForm.RowName(PillLayout.Mode, st, PowerService.ModeByName("Frio"), true));
+        Assert.Equal("Modo de energia: Economia, automático",
+            PillForm.RowName(PillLayout.Mode, st, PowerService.ModeByName("Economia"), false, auto: true));
     }
 
     [Fact]
@@ -1146,6 +1148,9 @@ public class FlyoutTests
         var comModo = FlyoutText.Lines(s, PowerService.ModeByName("Frio"), true);
         Assert.Contains(comModo, l => l.Text == "Modo: Frio");
         Assert.Contains(comModo, l => l.Text == "Segundo plano: ligado");
+
+        var automatico = FlyoutText.Lines(s, PowerService.ModeByName("Economia"), false, auto: true);
+        Assert.Contains(automatico, l => l.Text == "Modo: Economia · automático");
     }
 
     [Fact]
@@ -1317,6 +1322,19 @@ public class QuickPanelTests
         painel.SetState(null, false);
         foreach (var m in PowerService.Modes)
             Assert.Equal(Neutro, Botao(painel, m.Name).BackColor);
+    }
+
+    [Fact]
+    public void Titulo_mostra_quando_o_modo_e_automatico()
+    {
+        using var painel = Abrir();
+        var frio = PowerService.ModeByName("Frio")!;
+        Label Titulo() => painel.Controls.OfType<Label>().Single(l => l.Text.StartsWith("Modo de energia"));
+
+        painel.SetState(frio, false, auto: true);
+        Assert.Equal("Modo de energia · automático", Titulo().Text);
+        painel.SetState(frio, false);
+        Assert.Equal("Modo de energia", Titulo().Text);
     }
 
     [Fact]

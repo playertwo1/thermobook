@@ -5,14 +5,14 @@
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0; pré-lançamento v0.2.0-beta.1
 **Pendente da v0.2:** verificação no notebook pelo dono ([checklist](VERIFICACAO.md)) e tag `v0.2.0` com aprovação. As fases 0–12 estão em [archive/ROADMAP-v0.2.md](archive/ROADMAP-v0.2.md).
-**Próxima subfase:** [13.2 Ligar ao app](ROADMAP.md#132-ligar-ao-app) o modo automático.
+**Próxima subfase:** [13.3 Interface](ROADMAP.md#133-interface) do modo automático.
 
 ## Progresso
 
 | Fase | Status |
 |---|---|
 | 0–12 v0.1 e v0.2 | ⚠️ no `main`, falta a verificação da v0.2 no notebook |
-| 13 Modo automático por regra | 🟨 em andamento (13.1 feita) |
+| 13 Modo automático por regra | 🟨 em andamento (13.1 e 13.2 feitas; 13.2 falta verificar no notebook) |
 | 14 Limpeza agendada | ⬜ não iniciada |
 | 15 Temperatura da GPU NVIDIA | ⬜ não iniciada |
 | 16 Histórico em CSV e gráfico de 24 h | ⬜ não iniciada |
@@ -70,5 +70,6 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 
 ## Notas da última sessão
 
+- 13.2: `TrayApp.RunAutoMode` (tique de 1 s) + `PollProcesses` (timer de 5 s fora da interface) + `ModeState.Auto` mostrado no flyout, painel rápido, pílula (leitor de tela) e dica da bandeja. Ligar só pelo `settings.json` até a 13.3. Não rodei o app. 281 testes.
 - 13.1: `AutoMode` (regras puras, edge-triggered: só pede troca quando o modo desejado muda), `AutoRules`/`ProgramRule`, `Settings.Auto` (null = nunca configurado) e `TempAlert.Active`. Nada ligado ao app ainda (13.2). 280 testes passando.
 - Roadmap novo (fases 13–18) com os itens 1–5 do backlog; fases 0–12 e o STATE da v0.2 arquivados em `docs/archive/`. Nenhum código mudou.
