@@ -7,7 +7,9 @@ namespace ThermoBook.Services;
 /// <param name="AlertSeconds">...por este tempo seguido.</param>
 /// <param name="AutoCool">No aviso, troca sozinho para o perfil Frio.</param>
 /// <param name="Hotkey">Atalho global para desligar a tela, ex.: "Ctrl+Alt+Shift+D". Vazio desliga o atalho.</param>
-internal sealed record Settings(string? Profile = null, double AlertCelsius = 90, int AlertSeconds = 30, bool AutoCool = false, string Hotkey = HotkeyService.Default);
+/// <param name="BackgroundPlans">Modo segundo plano ligado quando não vazio: por plano (GUID), os valores originais de tampa/suspensão/hibernação.</param>
+internal sealed record Settings(string? Profile = null, double AlertCelsius = 90, int AlertSeconds = 30, bool AutoCool = false, string Hotkey = HotkeyService.Default,
+    Dictionary<string, Dictionary<string, PairValue>>? BackgroundPlans = null);
 
 /// <summary>Guarda as configurações em %AppData%\ThermoBook\settings.json.</summary>
 internal sealed class SettingsStore(string path)

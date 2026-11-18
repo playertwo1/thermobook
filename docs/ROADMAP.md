@@ -103,13 +103,15 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 8.2: `HotkeyService` (parser testado + `RegisterHotKey`) e `HotkeyWindow` no `TrayApp`; atalho em `settings.json` (`Hotkey`, vazio desliga). Se o registro falhar, avisa uma vez com balão e segue sem o atalho. Falta verificar rodando o app: o atalho desliga a tela com outro app em foco, e um atalho já em uso mostra o aviso.
 
 ### 8.3 Modo segundo plano
-- [ ] Ligar: guarda no `settings.json` os valores **atuais** de `LIDACTION`, `STANDBYIDLE`, `HIBERNATEIDLE` (AC e DC) do plano ativo e grava `0` (não fazer nada / nunca).
-- [ ] Desligar: restaura exatamente os valores guardados (não um padrão fixo como o `.bat` faz) e apaga o snapshot.
-- [ ] O snapshot fica salvo antes de gravar: se o app fechar ou o PC reiniciar com o modo ligado, ao abrir ele continua ligado e ainda dá para desligar e voltar ao original.
-- [ ] Se o usuário trocar de plano de energia com o modo ligado, reaplica no plano novo (guardando o snapshot desse plano também).
-- [ ] Indicador no ícone da bandeja (e depois na pílula, fase 9) e item com check no menu.
+- [x] Ligar: guarda no `settings.json` os valores **atuais** de `LIDACTION`, `STANDBYIDLE`, `HIBERNATEIDLE` (AC e DC) do plano ativo e grava `0` (não fazer nada / nunca).
+- [x] Desligar: restaura exatamente os valores guardados (não um padrão fixo como o `.bat` faz) e apaga o snapshot.
+- [x] O snapshot fica salvo antes de gravar: se o app fechar ou o PC reiniciar com o modo ligado, ao abrir ele continua ligado e ainda dá para desligar e voltar ao original.
+- [x] Se o usuário trocar de plano de energia com o modo ligado, reaplica no plano novo (guardando o snapshot desse plano também).
+- [x] Indicador no ícone da bandeja (e depois na pílula, fase 9) e item com check no menu.
 
 **Pronto quando:** testes da lógica de snapshot (ligar → desligar devolve o original; ligar duas vezes não sobrescreve o snapshot); no notebook, fechar a tampa com o modo ligado não suspende, e desligar devolve o que o `powercfg /qh` mostrava antes.
+
+> Feito no PR da 8.3: `BackgroundMode` (lógica pura, testada: ligar → desligar devolve o original, ligar duas vezes não sobrescreve, snapshot salvo antes de gravar, dois planos, configuração ausente, JSON) + item "Modo segundo plano" no menu e pontinho azul no ícone. Ao abrir o app com o modo ligado ele reaplica no plano ativo; ao trocar de plano reaplica no plano novo (usa o `PlanWatcher` da 7.3). GUIDs de tampa/suspensão/hibernação conferidos com `powercfg /qh`. **Falta no notebook (por isso a 8.3 não está 100%)**: fechar a tampa com o modo ligado não suspende; desligar devolve o que o `powercfg /qh` mostrava antes. A pílula (fase 9) ainda não mostra o indicador.
 
 ---
 

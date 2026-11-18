@@ -480,3 +480,149 @@ public class PowerDiagnosticsTests
         Assert.DoesNotContain("(DIFERENTE)", igual);
     }
 }
+
+public class BackgroundModeTests
+{
+    private static readonly Guid P1 = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid P2 = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid P3 = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid Lid = PowerService.LidAction;
+    private static readonly Guid Standby = PowerService.StandbyIdle;
+    private static readonly Guid Hibernate = PowerService.HibernateIdle;
+
+    private static readonly (Guid Plan, Guid Setting, uint Ac, uint Dc)[] ValoresP1 =
+    [
+        (P1, Lid, 1, 2), (P1, Standby, 900, 300), (P1, Hibernate, 3600, 1800),
+    ];
+
+    private static readonly (Guid Plan, Guid Setting, uint Ac, uint Dc)[] ValoresP2 =
+    [
+        (P2, Lid, 4, 4), (P2, Standby, 120, 60), (P2, Hibernate, 1800, 900),
+    ];
+
+    /// <summary>Sistema falso: leitura e gravação num dicionário. Configuração ausente devolve null / false, como no hardware.</summary>
+    private sealed class FakeSystem
+    {
+        public readonly Dictionary<(Guid Plan, Guid Setting), (uint Ac, uint Dc)> Values = new();
+        public readonly List<(Settings Settings, Dictionary<(Guid Plan, Guid Setting), (uint Ac, uint Dc)> Estado)> Saves = new();
+
+        public (uint Ac, uint Dc)? Read(Guid plan, Guid sub, Guid setting) =>
+            Values.TryGetValue((plan, setting), out var v) ? v : null;
+
+        public bool Write(Guid plan, Guid sub, Guid setting, uint ac, uint dc)
+        {
+            if (!Values.ContainsKey((plan, setting))) return false;
+            Values[(plan, setting)] = (ac, dc);
+            return true;
+        }
+
+        public void Save(Settings s)
+        {
+            var estado = new Dictionary<(Guid Plan, Guid Setting), (uint Ac, uint Dc)>(Values);
+            Saves.Add((s, estado));
+        }
+    }
+
+    private static FakeSystem Sistema(params (Guid Plan, Guid Setting, uint Ac, uint Dc)[] valores)
+    {
+        var sys = new FakeSystem();
+        foreach (var (plan, setting, ac, dc) in valores) sys.Values[(plan, setting)] = (ac, dc);
+        return sys;
+    }
+
+    private static void AssertPlano(FakeSystem sys, Guid plan, (uint Ac, uint Dc) lid, (uint Ac, uint Dc) standby, (uint Ac, uint Dc) hibernate)
+    {
+        Assert.Equal(lid, sys.Values[(plan, Lid)]);
+        Assert.Equal(standby, sys.Values[(plan, Standby)]);
+        Assert.Equal(hibernate, sys.Values[(plan, Hibernate)]);
+    }
+
+    [Fact]
+    public void Ligar_e_desligar_devolve_o_original()
+    {
+        var sys = Sistema(ValoresP1);
+        var s = BackgroundMode.Enable(new Settings(), P1, sys.Read, sys.Write, sys.Save);
+        AssertPlano(sys, P1, (0, 0), (0, 0), (0, 0));
+        Assert.True(BackgroundMode.IsOn(s));
+
+        s = BackgroundMode.Disable(s, sys.Write, sys.Save);
+        AssertPlano(sys, P1, (1, 2), (900, 300), (3600, 1800));
+        Assert.False(BackgroundMode.IsOn(s));
+        Assert.Null(s.BackgroundPlans);
+    }
+
+    [Fact]
+    public void Snapshot_e_salvo_antes_de_gravar()
+    {
+        var sys = Sistema(ValoresP1);
+        BackgroundMode.Enable(new Settings(), P1, sys.Read, sys.Write, sys.Save);
+
+        var (salvo, estado) = sys.Saves[0];
+        Assert.True(BackgroundMode.IsOn(salvo));
+        Assert.Equal((1u, 2u), estado[(P1, Lid)]);
+        Assert.Equal((900u, 300u), estado[(P1, Standby)]);
+        Assert.Equal((3600u, 1800u), estado[(P1, Hibernate)]);
+    }
+
+    [Fact]
+    public void Ligar_duas_vezes_nao_sobrescreve_o_snapshot()
+    {
+        var sys = Sistema(ValoresP1);
+        var s1 = BackgroundMode.Enable(new Settings(), P1, sys.Read, sys.Write, sys.Save);
+        var s2 = BackgroundMode.Enable(s1, P1, sys.Read, sys.Write, sys.Save);
+        Assert.Equal(new PairValue(1, 2), s2.BackgroundPlans![P1.ToString()]["lid"]);
+
+        BackgroundMode.Disable(s2, sys.Write, sys.Save);
+        AssertPlano(sys, P1, (1, 2), (900, 300), (3600, 1800));
+    }
+
+    [Fact]
+    public void Dois_planos_sao_restaurados()
+    {
+        var sys = Sistema([.. ValoresP1, .. ValoresP2]);
+        var s = BackgroundMode.Enable(new Settings(), P1, sys.Read, sys.Write, sys.Save);
+        s = BackgroundMode.Enable(s, P2, sys.Read, sys.Write, sys.Save);
+        Assert.Equal(2, s.BackgroundPlans!.Count);
+
+        BackgroundMode.Disable(s, sys.Write, sys.Save);
+        AssertPlano(sys, P1, (1, 2), (900, 300), (3600, 1800));
+        AssertPlano(sys, P2, (4, 4), (120, 60), (1800, 900));
+    }
+
+    [Fact]
+    public void Configuracao_ausente_no_hardware_e_ignorada()
+    {
+        // P3 não tem a chave de tampa (lid) neste hardware.
+        var sys = Sistema((P3, Standby, 900, 300), (P3, Hibernate, 3600, 1800));
+        var s = BackgroundMode.Enable(new Settings(), P3, sys.Read, sys.Write, sys.Save);
+        Assert.False(s.BackgroundPlans![P3.ToString()].ContainsKey("lid"));
+        Assert.Equal(2, s.BackgroundPlans[P3.ToString()].Count);
+
+        s = BackgroundMode.Disable(s, sys.Write, sys.Save);
+        Assert.Null(s.BackgroundPlans);
+        Assert.False(sys.Values.ContainsKey((P3, Lid)));
+        Assert.Equal((900u, 300u), sys.Values[(P3, Standby)]);
+    }
+
+    [Fact]
+    public void Settings_com_snapshot_sobrevive_a_JSON()
+    {
+        var s = new Settings("Frio", BackgroundPlans: new Dictionary<string, Dictionary<string, PairValue>>
+        {
+            [P1.ToString()] = new() { ["lid"] = new(1, 2), ["standby"] = new(900, 300), ["hibernate"] = new(3600, 1800) },
+        });
+
+        var json = System.Text.Json.JsonSerializer.Serialize(s);
+        var volta = System.Text.Json.JsonSerializer.Deserialize<Settings>(json)!;
+
+        Assert.True(BackgroundMode.IsOn(volta));
+        var plano = volta.BackgroundPlans![P1.ToString()];
+        Assert.Equal(new PairValue(1, 2), plano["lid"]);
+        Assert.Equal(new PairValue(900, 300), plano["standby"]);
+        Assert.Equal(new PairValue(3600, 1800), plano["hibernate"]);
+        Assert.Equal("Frio", volta.Profile);
+
+        var antigo = System.Text.Json.JsonSerializer.Deserialize<Settings>("""{ "Profile": "Frio" }""")!;
+        Assert.False(BackgroundMode.IsOn(antigo));
+    }
+}

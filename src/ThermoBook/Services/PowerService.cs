@@ -52,6 +52,12 @@ internal static partial class PowerService
     public static readonly Guid CpDecreaseTime = new("dfd10d17-d5eb-45dd-877a-9a34ddd15c82");
     public static readonly Guid PerfIncreaseThreshold = new("06cadf0e-64ed-448a-8927-ce7bf90eb35d");
     public static readonly Guid PerfDecreaseThreshold = new("12a0ab44-fe28-4fa9-b3bd-4b64f44960a6");
+    // Botões/tampa e suspensão (modo segundo plano)
+    public static readonly Guid SubButtons = new("4f971e89-eebd-4455-a8de-9e59040e7347");
+    public static readonly Guid LidAction = new("5ca83367-6e45-459f-a27b-476b1d01c936");
+    public static readonly Guid SubSleep = new("238c9fa8-0aad-41ed-83f4-97be242c8f20");
+    public static readonly Guid StandbyIdle = new("29f6c1db-86da-48c5-9fdb-f2b67b1f44da");
+    public static readonly Guid HibernateIdle = new("9d7815a6-7ee4-497e-8888-515a05f02364");
     // Disco
     public static readonly Guid DiskIdle = new("6738e2c4-e8a5-4a42-b16a-e040e769756e");
     // Personalidade do plano (GUID_POWERSCHEME_PERSONALITY, usado na fase 7.3)
@@ -85,9 +91,11 @@ internal static partial class PowerService
         Modes.FirstOrDefault(m => m.Turbo == turbo && m.CpuMax == limit && m.Epp == epp && (cpuMin is null || m.CpuMinAc == cpuMin));
 
     /// <summary>Lê o valor em tomada (AC) e bateria (DC) no plano ativo; null se a configuração não existe.</summary>
-    public static (uint Ac, uint Dc)? Read(Guid sub, Guid setting)
+    public static (uint Ac, uint Dc)? Read(Guid sub, Guid setting) => ReadPlan(ActiveScheme(), sub, setting);
+
+    /// <summary>Igual a <see cref="Read"/>, mas num plano qualquer (não só o ativo).</summary>
+    public static (uint Ac, uint Dc)? ReadPlan(Guid scheme, Guid sub, Guid setting)
     {
-        var scheme = ActiveScheme();
         var e1 = PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, out uint ac);
         var e2 = PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, out uint dc);
         if (IsMissing(e1) || IsMissing(e2)) return null;
@@ -96,9 +104,11 @@ internal static partial class PowerService
     }
 
     /// <summary>Grava AC e DC no plano ativo (não ativa o plano). Devolve false se a configuração não existe.</summary>
-    public static bool Write(Guid sub, Guid setting, uint ac, uint dc)
+    public static bool Write(Guid sub, Guid setting, uint ac, uint dc) => WritePlan(ActiveScheme(), sub, setting, ac, dc);
+
+    /// <summary>Igual a <see cref="Write"/>, mas num plano qualquer. Plano apagado conta como configuração ausente (false).</summary>
+    public static bool WritePlan(Guid scheme, Guid sub, Guid setting, uint ac, uint dc)
     {
-        var scheme = ActiveScheme();
         var e1 = PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref setting, ac);
         if (IsMissing(e1)) return false;
         Check(e1);
