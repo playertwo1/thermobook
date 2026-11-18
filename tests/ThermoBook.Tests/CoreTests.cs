@@ -2046,6 +2046,171 @@ public class TweaksTests
     }
 }
 
+public class ScheduledCleanupTests
+{
+    private sealed class FakeBackend : ISchedulerBackend
+    {
+        public List<TaskDef> Registered = [];
+        public bool Exists = true;
+        public bool Delete(string folder, string name) { var e = Exists; Exists = false; return e; }
+        public void Register(TaskDef def) => Registered.Add(def);
+    }
+
+    [Fact]
+    public void Horario_vai_e_volta_pela_gramatica_fechada()
+    {
+        foreach (var s in new[] { CleanupSchedule.Default, new(ScheduleFrequency.Monthly, 28, 0, 5), new(ScheduleFrequency.Weekly, 6, 23, 59) })
+        {
+            Assert.True(CleanupSchedule.TryParse(s.Format(), out var lido));
+            Assert.Equal(s, lido);
+        }
+        Assert.Equal("semanal:0:12:00", CleanupSchedule.Default.Format());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("diario:0:12:00")]
+    [InlineData("semanal:7:12:00")]   // dia da semana 0–6
+    [InlineData("mensal:0:12:00")]    // dia do mês 1–28
+    [InlineData("mensal:29:12:00")]
+    [InlineData("semanal:0:24:00")]
+    [InlineData("semanal:0:12:60")]
+    [InlineData("semanal:0:12:00 ")]
+    [InlineData("semanal:-1:12:00")]
+    [InlineData("semanal:0:12:00:00")]
+    [InlineData("semanal:0:12;calc")]
+    public void Horario_invalido_e_recusado(string texto) => Assert.False(CleanupSchedule.TryParse(texto, out _));
+
+    [Fact]
+    public void Tarefa_elevada_com_horario_so_vale_se_o_horario_for_valido()
+    {
+        Assert.NotNull(ElevatedTask.Resolve("limpeza-agendar:semanal:0:12:00"));
+        Assert.Null(ElevatedTask.Resolve("limpeza-agendar:semanal:0:99:00"));
+        Assert.Null(ElevatedTask.Resolve("limpeza-agendar:"));
+        Assert.Null(ElevatedTask.Resolve("limpeza-agendar"));
+        Assert.NotNull(ElevatedTask.Resolve("limpeza-desagendar"));
+        var report = @"C:\Temp\r.json";
+        Assert.NotNull(ElevatedTask.Parse(["--tarefa", "limpeza-agendar:mensal:1:08:30", "--relatorio", report]));
+        Assert.Null(ElevatedTask.Parse(["--tarefa", "limpeza-agendar:mensal:1:08:30;x", "--relatorio", report]));
+    }
+
+    [Fact]
+    public void Definicao_tem_gatilho_acao_privilegio_e_condicoes()
+    {
+        var d = ScheduledCleanup.Definition(CleanupSchedule.Default, @"C:\Program Files\ThermoBook\ThermoBook.exe", @"PC\ana");
+        Assert.Equal(@"\ThermoBook", d.Folder);
+        Assert.Equal("Limpeza", d.Name);
+        Assert.Equal("--limpeza-agendada", d.Arguments);
+        Assert.Equal(@"C:\Program Files\ThermoBook\ThermoBook.exe", d.Exe);
+        Assert.Equal(@"PC\ana", d.UserId);
+        Assert.True(d.Highest);
+        Assert.True(d.OnlyOnAc);
+        Assert.True(d.StartWhenAvailable);
+        Assert.Equal("PT1H", d.TimeLimit);
+        Assert.Equal(CleanupSchedule.Default, d.Schedule);
+    }
+
+    [Fact]
+    public void Agendar_copia_o_app_e_registra_a_tarefa_apontando_para_a_copia()
+    {
+        var backend = new FakeBackend();
+        var r = ScheduledCleanup.Schedule(new(ScheduleFrequency.Monthly, 1, 8, 30), backend, () => @"C:\PF\ThermoBook.exe", @"PC\ana");
+        Assert.Equal(TaskOutcome.Ok, r.Outcome);
+        Assert.Contains("todo dia 1 do mês às 8:30", r.Message);
+        Assert.Equal(@"C:\PF\ThermoBook.exe", Assert.Single(backend.Registered).Exe);
+    }
+
+    [Fact]
+    public void Falha_ao_copiar_nao_registra_tarefa()
+    {
+        var backend = new FakeBackend();
+        Assert.ThrowsAny<IOException>(() => ScheduledCleanup.Schedule(CleanupSchedule.Default, backend, () => throw new IOException("em uso"), "u"));
+        Assert.Empty(backend.Registered);
+    }
+
+    [Fact]
+    public void Desagendar_remove_a_tarefa_e_a_copia_e_aceita_nao_existir()
+    {
+        var backend = new FakeBackend();
+        int copias = 0;
+        Assert.Equal("Limpeza agendada desligada.", ScheduledCleanup.Unschedule(backend, () => copias++).Message);
+        var de_novo = ScheduledCleanup.Unschedule(backend, () => copias++);
+        Assert.Equal(TaskOutcome.Ok, de_novo.Outcome);
+        Assert.Equal("Não havia limpeza agendada.", de_novo.Message);
+        Assert.Equal(2, copias);
+    }
+
+    [Fact]
+    public void Copia_em_uso_nao_impede_desagendar()
+    {
+        var r = ScheduledCleanup.Unschedule(new FakeBackend(), () => throw new IOException("em uso"));
+        Assert.Equal(TaskOutcome.Ok, r.Outcome);
+        Assert.Contains("em uso", r.Message);
+    }
+
+    private static string TempLog() => Path.Combine(Path.GetTempPath(), "thermobook-tests", Guid.NewGuid() + ".json");
+
+    [Fact]
+    public void Limpeza_agendada_grava_o_resultado_e_o_codigo_de_saida()
+    {
+        var path = TempLog();
+        var quando = new DateTime(2026, 11, 22, 12, 0, 5);
+        Assert.Equal(0, ScheduledCleanup.RunScheduled(path, () => new(TaskOutcome.Ok, "1,2 GB liberados"), quando));
+        Assert.Equal(new CleanupLog(quando, TaskOutcome.Ok, "1,2 GB liberados"), ScheduledCleanup.ReadLog(path));
+
+        Assert.Equal(1, ScheduledCleanup.RunScheduled(path, () => throw new InvalidOperationException("quebrou"), quando));
+        var log = ScheduledCleanup.ReadLog(path)!;
+        Assert.Equal((TaskOutcome.Failed, "quebrou"), (log.Outcome, log.Message));
+    }
+
+    [Fact]
+    public void Log_ausente_ou_corrompido_e_nulo()
+    {
+        var path = TempLog();
+        Assert.Null(ScheduledCleanup.ReadLog(path));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "{ nao e json");
+        Assert.Null(ScheduledCleanup.ReadLog(path));
+    }
+
+    [Fact]
+    public void Limpeza_agendada_nao_esvazia_a_Lixeira()
+    {
+        // A tarefa agendada chama Cleanup.Run(emptyRecycleBin: false) (RunScheduled()); a Lixeira não tem volta (D6).
+        var fonte = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "ThermoBook", "Services", "CleanupSchedule.cs"));
+        Assert.Contains("Cleanup.Run(emptyRecycleBin: false)", fonte);
+        Assert.DoesNotContain("emptyRecycleBin: true", fonte);
+    }
+
+    // Verificação única contra o Agendador de verdade, sem administrador (tarefa não elevada, pasta de teste, removida no fim).
+    [Fact]
+    public void Agendador_real_registra_e_remove_uma_tarefa_sem_privilegio()
+    {
+        var backend = new ComScheduler();
+        string pasta = @"\ThermoBookTeste" + Guid.NewGuid().ToString("N")[..6];
+        var def = ScheduledCleanup.Definition(new(ScheduleFrequency.Weekly, 3, 9, 15), @"C:\Windows\System32\cmd.exe",
+            System.Security.Principal.WindowsIdentity.GetCurrent().Name) with { Folder = pasta, Highest = false };
+        try
+        {
+            backend.Register(def);
+            backend.Register(def); // criar ou atualizar: repetir não falha
+            Type t = Type.GetTypeFromProgID("Schedule.Service")!;
+            dynamic svc = Activator.CreateInstance(t)!;
+            svc.Connect();
+            dynamic tarefa = svc.GetFolder(pasta).GetTask("Limpeza");
+            Assert.Equal(1, (int)tarefa.Definition.Triggers.Count);
+            Assert.Equal(8, (int)tarefa.Definition.Triggers[1].DaysOfWeek); // quarta (3) = bit 1<<3
+            Assert.Equal("--limpeza-agendada", (string)tarefa.Definition.Actions[1].Arguments);
+            Assert.True((bool)tarefa.Definition.Settings.DisallowStartIfOnBatteries);
+        }
+        finally
+        {
+            Assert.True(backend.Delete(pasta, "Limpeza") || true);
+        }
+        Assert.False(backend.Delete(pasta, "Limpeza")); // já não existe
+    }
+}
+
 public class AutoModeTests
 {
     private static readonly AutoRules Regras = new(Enabled: true, OnBattery: "Economia", OnAc: "Equilibrado",

@@ -28,7 +28,19 @@ internal static class ElevatedTask
         ["otimizacao-trim"] = () => Tweaks.RunMachine(delivery: false, trim: true),
         ["otimizacao-entrega-trim"] = () => Tweaks.RunMachine(delivery: true, trim: true),
         ["otimizacao-desfazer"] = Tweaks.RunUndoMachine,
+        ["limpeza-desagendar"] = ScheduledCleanup.Unschedule, // limpeza-agendar:<horário> é resolvida em Resolve
     };
+
+    internal const string SchedulePrefix = "limpeza-agendar:";
+
+    /// <summary>A tarefa pelo nome: as fixas da lista, ou <c>limpeza-agendar:&lt;horário&gt;</c> com horário na gramática fechada de <see cref="CleanupSchedule"/>.</summary>
+    internal static Func<TaskReport>? Resolve(string task)
+    {
+        if (Tasks.TryGetValue(task, out var run)) return run;
+        if (task.StartsWith(SchedulePrefix, StringComparison.Ordinal) && CleanupSchedule.TryParse(task[SchedulePrefix.Length..], out var s))
+            return () => ScheduledCleanup.Schedule(s);
+        return null;
+    }
 
     internal sealed record Args(string Task, string ReportPath);
 
@@ -36,7 +48,7 @@ internal static class ElevatedTask
     internal static Args? Parse(string[] args)
     {
         if (args is not ["--tarefa", var task, "--relatorio", var report]) return null;
-        if (!Tasks.ContainsKey(task)) return null;
+        if (Resolve(task) is null) return null;
         if (report.IndexOfAny(Path.GetInvalidPathChars()) >= 0 || !Path.IsPathFullyQualified(report)) return null;
         if (!string.Equals(Path.GetExtension(report), ".json", StringComparison.OrdinalIgnoreCase)) return null;
         return new(task, report);
@@ -47,7 +59,7 @@ internal static class ElevatedTask
     {
         if (Parse(args) is not { } a) return 2;
         TaskReport report;
-        try { report = Tasks[a.Task](); }
+        try { report = Resolve(a.Task)!(); }
         catch (Exception ex) { report = new(TaskOutcome.Failed, ex.Message); }
         try
         {
@@ -62,7 +74,7 @@ internal static class ElevatedTask
     /// <summary>Lado normal: pede o UAC, espera o processo elevado e devolve o relatório. Não lança.</summary>
     internal static async Task<TaskReport> LaunchAsync(string task, Func<ProcessStartInfo, Process?>? start = null)
     {
-        if (!Tasks.ContainsKey(task)) return new(TaskOutcome.Failed, $"Tarefa desconhecida: {task}");
+        if (Resolve(task) is null) return new(TaskOutcome.Failed, $"Tarefa desconhecida: {task}");
         string report = Path.Combine(Path.GetTempPath(), $"ThermoBook-{Guid.NewGuid():N}.json");
         var psi = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true, Verb = "runas" };
         foreach (var a in new[] { "--tarefa", task, "--relatorio", report }) psi.ArgumentList.Add(a);

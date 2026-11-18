@@ -10,6 +10,7 @@ static partial class Program
     {
         // Antes de tudo: o processo elevado não abre bandeja nem janela, e argumento inválido não cai no app normal.
         if (args.Contains("--tarefa")) return ElevatedTask.RunElevated(args);
+        if (args is [ScheduledCleanup.Flag]) return ScheduledCleanup.RunScheduled(); // tarefa do Agendador: sem bandeja nem janela
         if (args.Contains("--diagnostico")) return Diagnose();
         if (args.Contains("--restaurar")) return Restore();
 
