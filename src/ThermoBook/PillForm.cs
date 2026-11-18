@@ -58,8 +58,8 @@ internal sealed class PillForm : FloatingForm
 
     private Font MakeFont()
     {
-        var f = new Font("Segoe UI Variable", 11 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
-        return f.Name == "Segoe UI Variable" ? f : new Font("Segoe UI", 11 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        var f = new Font("Segoe UI Variable", 13 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        return f.Name == "Segoe UI Variable" ? f : new Font("Segoe UI", 13 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
     }
 
     private (Size Vertical, Size Horizontal) Sizes() =>
@@ -130,6 +130,10 @@ internal sealed class PillForm : FloatingForm
     }
 
     /// <summary>Encaixa na borda mais próxima (a até 24 px lógicos) do monitor onde a pílula está.</summary>
+    protected override int RegionRadius => (int)Math.Round(10 * _scale); // menos redondo que a cápsula completa (pedido do dono)
+
+    protected override DockEdges DockedEdges => PillDock.Edges(Bounds, Screen.FromControl(this).WorkingArea);
+
     private void SnapToEdge()
     {
         var (v, h) = Sizes();
@@ -181,9 +185,6 @@ internal sealed class PillForm : FloatingForm
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-        using (var pen = new Pen(Border))
-            g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
-
         var st = _state ?? new PillState(null, null, null, null);
         int?[] values = [st.Temp, st.Cpu, st.Gpu, st.Ram];
         Color[] colors = [st.Temp is { } t ? TrayIconRenderer.TempColor(t) : Muted, CpuColor, GpuColor, RamColor];

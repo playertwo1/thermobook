@@ -345,6 +345,30 @@ public class MainFormTests
     private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
 }
 
+public class NotchTests
+{
+    private static readonly Rectangle Area = new(0, 0, 1920, 1040);
+
+    [Theory]
+    [InlineData(1884, 500, (int)DockEdges.Right)]             // borda direita: vertical
+    [InlineData(0, 500, (int)DockEdges.Left)]
+    [InlineData(900, 0, (int)DockEdges.Top)]
+    [InlineData(900, 1004, (int)DockEdges.Bottom)]
+    [InlineData(1884, 0, (int)(DockEdges.Top | DockEdges.Right))] // canto: toca as duas
+    [InlineData(900, 500, (int)DockEdges.None)]               // solta no meio
+    public void Bordas_que_a_pilula_toca(int x, int y, int esperado) =>
+        Assert.Equal((DockEdges)esperado, PillDock.Edges(new Rectangle(x, y, 36, 36), Area));
+
+    [Fact]
+    public void Cantos_do_lado_da_tela_ficam_retos()
+    {
+        Assert.Equal((18, 0, 0, 18), PillDock.Corners(18, DockEdges.Right));
+        Assert.Equal((0, 0, 18, 18), PillDock.Corners(18, DockEdges.Top));
+        Assert.Equal((0, 0, 0, 18), PillDock.Corners(18, DockEdges.Top | DockEdges.Right));
+        Assert.Equal((18, 18, 18, 18), PillDock.Corners(18, DockEdges.None));
+    }
+}
+
 public class SettingsPageTests
 {
     private static SettingsPage Pagina(List<Settings> salvas, Func<Settings, string?>? erro = null)
@@ -498,19 +522,19 @@ public class PillTests
     }
 
     [Fact]
-    public void Vertical_tem_36_px_de_largura_e_linhas_de_metrica_de_28()
+    public void Vertical_tem_40_px_de_largura_e_linhas_de_metrica_de_32()
     {
         var (size, items) = PillLayout.Compute(Orientation.Vertical, 1f);
-        Assert.Equal(36, size.Width);
+        Assert.Equal(40, size.Width);
         foreach (var i in new[] { PillLayout.Cpu, PillLayout.Gpu, PillLayout.Ram })
-            Assert.Equal(28, items[i].Row.Height);
+            Assert.Equal(32, items[i].Row.Height);
     }
 
     [Fact]
-    public void Horizontal_tem_36_px_de_altura()
+    public void Horizontal_tem_40_px_de_altura()
     {
         var (size, _) = PillLayout.Compute(Orientation.Horizontal, 1f);
-        Assert.Equal(36, size.Height);
+        Assert.Equal(40, size.Height);
     }
 
     [Fact]

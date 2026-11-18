@@ -17,16 +17,16 @@ colors:
   ram: "#3CC8C8"
 typography:
   family: "Segoe UI Variable, Segoe UI"
-  pill-value: { size: "11px", weight: 600 }
+  pill-value: { size: "13px", weight: 700 }
   pill-unit: { size: "8px", weight: 400 }
   body: { size: "13px", weight: 400 }
   title: { size: "15px", weight: 600 }
   caption: { size: "11px", weight: 400 }
 rounded:
-  pill: "999px"
+  pill: "10px"
   panel: "14px"
   control: "8px"
-  meter: "2px"
+  meter: "3px"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -63,7 +63,7 @@ Regra: vermelho e laranja só aparecem para temperatura e alertas. Uso alto de C
 
 ## Tipografia
 
-Segoe UI Variable. Na pílula: valor 11 px semibold com números tabulares (não "pula" quando muda de 9 para 10), unidade 8 px em `muted`. Nunca abaixo de 8 px lógicos.
+Segoe UI Variable. Na pílula: valor 13 px negrito com números tabulares (não "pula" quando muda de 9 para 10), unidade 8 px em `muted`. Nunca abaixo de 8 px lógicos.
 
 ## Componentes
 
@@ -73,7 +73,7 @@ Segoe UI Variable. Na pílula: valor 11 px semibold com números tabulares (não
  ╭────╮
  │ 54°│  temperatura (cor por limiar)
  │ ── │
- │ 12 │  CPU %   ▏medidor de 2 px na cor da métrica
+ │ 12 │  CPU %   ▏medidor de 3 px na cor da métrica
  │  3 │  GPU %
  │ 61 │  RAM %
  │ ── │
@@ -81,11 +81,12 @@ Segoe UI Variable. Na pílula: valor 11 px semibold com números tabulares (não
  ╰────╯
 ```
 
-- Largura 36 px lógicos na vertical; cada linha 28 px; raio total (cápsula).
+- Largura 40 px lógicos na vertical; cada linha de métrica 32 px; cantos com raio de 10 px (não é cápsula completa).
 - Vertical quando presa a uma borda lateral; **horizontal** (mesmos itens lado a lado) quando presa ao topo ou à base.
-- Cada métrica: número + um medidor fino de 2 px (horizontal em baixo do número na vertical, à esquerda na horizontal) com a porcentagem.
-- Sem sombra, sem transparência por padrão (legível sobre qualquer papel de parede). Borda de 1 px `border` para não sumir em fundo preto.
-- Indicador de modo: ponto de 6 px na cor do modo; quando o **modo segundo plano** está ligado, ganha um anel ao redor (lembrete de que a tampa não suspende).
+- Cada métrica: número + um medidor fino de 3 px (horizontal em baixo do número na vertical, à esquerda na horizontal) com a porcentagem.
+- Sem sombra, sem transparência, sem borda (legível sobre qualquer papel de parede).
+- **Notch**, como o OpenUsage: encostada na tela, sem folga; os cantos do lado da borda ficam retos e os de dentro arredondados (no canto da tela, só o canto de dentro arredonda). Cantos por `Region` própria; o arredondamento e o contorno claro do DWM do Windows 11 ficam desligados.
+- Indicador de modo: ponto de 7 px na cor do modo; quando o **modo segundo plano** está ligado, ganha um anel ao redor (lembrete de que a tampa não suspende).
 - Valores indisponíveis mostram `–`, nunca `0`.
 
 ### Flyout (passar o mouse)

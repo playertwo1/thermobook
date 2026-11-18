@@ -1,10 +1,10 @@
 namespace ThermoBook;
 
-/// <summary>Uma linha da pílula: retângulo total, onde vai o valor e (nas métricas) o medidor de 2 px.</summary>
+/// <summary>Uma linha da pílula: retângulo total, onde vai o valor e (nas métricas) o medidor de 3 px.</summary>
 internal readonly record struct PillItem(Rectangle Row, Rectangle Value, Rectangle? Meter);
 
 /// <summary>
-/// Layout da pílula (DESIGN.md): vertical com 36 px de largura e linhas de 28 px, ou horizontal com os mesmos
+/// Layout da pílula (DESIGN.md): vertical com 40 px de largura e linhas de 32 px, ou horizontal com os mesmos
 /// itens lado a lado. Um só código para as duas orientações; tudo em pixels de 96 DPI vezes <c>scale</c>.
 /// Itens: 0 temperatura, 1 CPU, 2 GPU, 3 RAM, 4 modo (o ponto fica em <see cref="PillItem.Value"/>).
 /// </summary>
@@ -12,7 +12,7 @@ internal static class PillLayout
 {
     public const int ItemCount = 5, Temp = 0, Cpu = 1, Gpu = 2, Ram = 3, Mode = 4;
 
-    private const int Thickness = 36, MetricLong = 28, ModeLong = 20, HorizontalMetric = 32, HorizontalMode = 24, MeterPx = 2, DotPx = 6;
+    private const int Thickness = 40, MetricLong = 32, ModeLong = 22, HorizontalMetric = 36, HorizontalMode = 26, MeterPx = 3, DotPx = 7;
 
     public static (Size Size, PillItem[] Items) Compute(Orientation orientation, float scale)
     {

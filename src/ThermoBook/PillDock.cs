@@ -5,6 +5,10 @@ internal sealed record PillPosition(int X, int Y, bool Horizontal);
 
 internal readonly record struct DockResult(Point Location, Orientation Orientation);
 
+/// <summary>Bordas da área de trabalho que a janela toca.</summary>
+[Flags]
+internal enum DockEdges { None = 0, Left = 1, Top = 2, Right = 4, Bottom = 8 }
+
 /// <summary>Encaixe e restauração da posição da pílula. Lógica pura, sem janela: testável.</summary>
 internal static class PillDock
 {
@@ -55,6 +59,22 @@ internal static class PillDock
         var area = primary.Key is null ? screens[0].Area : primary.Area;
         var key = primary.Key ?? screens[0].Key;
         return (key, new DockResult(new Point(area.Right - vertical.Width, area.Top + (area.Height - vertical.Height) / 2), Orientation.Vertical));
+    }
+
+    /// <summary>Bordas que a janela toca (encaixe rente, sem folga).</summary>
+    public static DockEdges Edges(Rectangle bounds, Rectangle area) =>
+        (bounds.Left <= area.Left ? DockEdges.Left : 0) | (bounds.Top <= area.Top ? DockEdges.Top : 0)
+        | (bounds.Right >= area.Right ? DockEdges.Right : 0) | (bounds.Bottom >= area.Bottom ? DockEdges.Bottom : 0);
+
+    /// <summary>Raio de cada canto (sup. esq., sup. dir., inf. dir., inf. esq.): reto onde encosta na tela, como o notch do OpenUsage.</summary>
+    public static (int TopLeft, int TopRight, int BottomRight, int BottomLeft) Corners(int radius, DockEdges edges)
+    {
+        int tl = radius, tr = radius, br = radius, bl = radius;
+        if (edges.HasFlag(DockEdges.Top)) tl = tr = 0;
+        if (edges.HasFlag(DockEdges.Bottom)) bl = br = 0;
+        if (edges.HasFlag(DockEdges.Left)) tl = bl = 0;
+        if (edges.HasFlag(DockEdges.Right)) tr = br = 0;
+        return (tl, tr, br, bl);
     }
 
     private static Point Clamp(Point p, Size size, Rectangle area) => new(
