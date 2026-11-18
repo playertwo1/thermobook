@@ -16,6 +16,7 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | [docs/PLANO.md](PLANO.md) | Plano e decisões da v0.1 (histórico). |
 | [README.md](../README.md) | Apresentação e como gerar o instalador. |
 | [docs/VERIFICACAO.md](VERIFICACAO.md) | Checklist de verificação da v0.2 no notebook (todos os "falta verificar" das fases 7–12, em ordem). |
+| [docs/VERIFICACAO-v0.3.md](VERIFICACAO-v0.3.md) | Checklist das fases 13–17 (modo automático, limpeza agendada, histórico, atualização; GPU NVIDIA em outra máquina). |
 | `docs/img/pilula.png` | Imagem da pílula (vertical e horizontal, 200%), usada no README e no DESIGN. Gerada pelo `OnPaint` real do `PillForm`. |
 | `docs/img/banner.png`, `flyout.png`, `painel-rapido.png`, `painel-*.png` | Banner e capturas do README: desenho real das janelas (`DrawToBitmap`) com dados de exemplo, gerados por um teste temporário. Refazer quando o visual mudar. |
 

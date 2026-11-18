@@ -35,6 +35,14 @@ A pílula de ícones do OpenUsage para Windows (`~/projetos/openusage`): uma cá
 6. **Painel completo em abas**: Monitor, Modos, Ferramentas e Configurações (tudo do `settings.json` editável e salvo na hora).
 7. **Desinstalar devolve o PC como estava**: desliga o segundo plano, desfaz os ajustes da otimização (os de máquina pedem UAC) e volta ao modo Eficiência.
 
+## Próxima versão (no `main`, falta verificar; ver [VERIFICACAO-v0.3](docs/VERIFICACAO-v0.3.md))
+
+1. **Modo automático por regra**: modo na bateria, na tomada e por programa aberto; o calor continua com prioridade.
+2. **Limpeza agendada** semanal ou mensal pelo Agendador, só na tomada, com uma cópia do app em `Program Files` para não deixar um executável editável rodando como administrador.
+3. **Temperatura da GPU NVIDIA** pela NVML, no flyout, no painel e no CSV (a pílula e o alerta seguem na CPU).
+4. **Histórico em CSV** (um minuto por linha, 30 dias) e **gráfico de 24 h** na aba Monitor.
+5. **Atualização automática** pela Release do GitHub, com SHA-256 conferido e desligável.
+
 ## Princípios
 
 - **Sem administrador no dia a dia.** Monitorar, trocar modo, segundo plano e desligar tela funcionam como usuário comum. Só limpeza e otimização pedem UAC, e só no clique.
@@ -45,8 +53,7 @@ A pílula de ícones do OpenUsage para Windows (`~/projetos/openusage`): uma cá
 
 ## Fora do escopo da v0.2
 
-Controle de ventoinha (o firmware Samsung não expõe), inglês e tema claro. Modo automático por programa ou bateria, limpeza agendada, temperatura da GPU NVIDIA, histórico em CSV e atualização automática estão planejados para a próxima versão no [ROADMAP](docs/ROADMAP.md).
-
+Controle de ventoinha (o firmware Samsung não expõe), inglês e tema claro.
 ## Limites conhecidos
 
 - **Temperatura da CPU** vem das zonas térmicas ACPI, não do sensor por núcleo.

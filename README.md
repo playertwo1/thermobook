@@ -20,7 +20,7 @@
 
 Ele substitui uma pasta de scripts `.bat`/`.ps1` (modos de energia, tampa fechada sem suspender, desligar a tela, limpeza, otimização) por um app só, **sem rodar como administrador** e **sem driver de kernel**.
 
-> **Estado:** a [v0.1.0](https://github.com/playertwo1/thermobook/releases/tag/v0.1.0) (bandeja e painel) é a versão estável. A **v0.2** (pílula, 6 modos, segundo plano, ferramentas) está no [pré-lançamento v0.2.0-beta.1](https://github.com/playertwo1/thermobook/releases/tag/v0.2.0-beta.1) e em [verificação no notebook](docs/VERIFICACAO.md).
+> **Estado:** a [v0.1.0](https://github.com/playertwo1/thermobook/releases/tag/v0.1.0) (bandeja e painel) é a versão estável. A **v0.2** (pílula, 6 modos, segundo plano, ferramentas) está no [pré-lançamento v0.2.0-beta.1](https://github.com/playertwo1/thermobook/releases/tag/v0.2.0-beta.1) e em [verificação no notebook](docs/VERIFICACAO.md). Modo automático, limpeza agendada, histórico, GPU NVIDIA e atualização estão no `main`, com [checklist próprio](docs/VERIFICACAO-v0.3.md), e ainda sem versão publicada.
 
 ## Sumário
 
@@ -43,6 +43,11 @@ Ele substitui uma pasta de scripts `.bat`/`.ps1` (modos de energia, tampa fechad
 | **Desligar a tela** | Botão no painel rápido e atalho global `Ctrl+Alt+Shift+D` (configurável). |
 | **Ferramentas** | Limpeza de temporários, cache do Windows Update e DNS; otimização do Windows em itens marcáveis (privacidade, desempenho, TRIM, apps pré-instalados) com **Desfazer**. Só o que é de máquina pede UAC, na hora do clique. |
 | **Alerta** | Aviso quando a temperatura passa do limite por um tempo, com opção de trocar sozinho para o modo Frio. |
+| **Modo automático** | Regras em Configurações: um modo na bateria, outro na tomada e um modo por programa aberto (ex.: `ffmpeg` → Frio). Troca só quando a condição muda; o calor continua mandando. |
+| **Limpeza agendada** | Semanal ou mensal, pelo Agendador de Tarefas, só na tomada. Pede UAC uma vez ao agendar; o app do dia a dia segue sem administrador. |
+| **Histórico** | Uma linha por minuto em CSV (`%AppData%\ThermoBook\historico`, 30 dias, abre no Excel) e gráfico de 24 h na aba Monitor. |
+| **GPU NVIDIA** | Temperatura da placa no flyout, no painel e no CSV, lida pela NVML do driver (sem driver nenhum a mais). A pílula segue na CPU. |
+| **Atualização** | Avisa de versão nova na Release, confere o SHA-256 e instala em silêncio com um clique. Dá para desligar; não envia dado seu. |
 
 <p align="center">
   <img src="docs/img/pilula.png" width="600" alt="Pílula vertical presa à borda direita e horizontal presa ao topo, com 54°, 12, 3 e 61 e o ponto azul do modo Frio com anel de segundo plano">

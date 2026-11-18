@@ -5,7 +5,7 @@
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0; pré-lançamento v0.2.0-beta.1
 **Pendente da v0.2:** verificação no notebook pelo dono ([checklist](VERIFICACAO.md)) e tag `v0.2.0` com aprovação. As fases 0–12 estão em [archive/ROADMAP-v0.2.md](archive/ROADMAP-v0.2.md).
-**Próxima subfase:** [Fase 18](ROADMAP.md) (checklist das fases 13–17 e proposta de versão). Antes de seguir, vale verificar as fases 13, 14, 16 e 17 no notebook; a 15 precisa de uma máquina com NVIDIA.
+**Próxima subfase:** [18.2 Release](ROADMAP.md#182-release): só depois de o dono passar o [checklist da v0.3](VERIFICACAO-v0.3.md) (seções 1–4 no notebook; a 15 numa máquina com NVIDIA) e aprovar o número da versão (proposta: `v0.3.0`, com beta antes). Sem aprovação, nada de tag.
 
 ## Progresso
 
@@ -17,7 +17,7 @@
 | 15 Temperatura da GPU NVIDIA | ⚠️ no `main` só com testes (15.1–15.2 feitas; falta uma máquina com NVIDIA) |
 | 16 Histórico em CSV e gráfico de 24 h | ⚠️ no `main` mas falta verificar (16.1–16.2 feitas; falta rodar o app por horas) |
 | 17 Atualização automática | ⚠️ no `main` mas falta verificar (17.1–17.2 feitas; falta atualizar de verdade pela Release) |
-| 18 Verificação e release | ⬜ não iniciada |
+| 18 Verificação e release | 🟨 em andamento (18.1 checklist feito; 18.2 espera o dono) |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ no `main` · ⚠️ no `main` mas falta verificar no notebook
 

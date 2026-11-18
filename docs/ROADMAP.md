@@ -174,7 +174,9 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 ## Fase 18 — Verificação e release
 
 ### 18.1 Checklist
-- [ ] Checklist de verificação das fases 13–17 no notebook (no formato do [VERIFICACAO.md](VERIFICACAO.md)), com o que só dá para conferir em outra máquina (15) separado.
+- [x] Checklist de verificação das fases 13–17 no notebook (no formato do [VERIFICACAO.md](VERIFICACAO.md)), com o que só dá para conferir em outra máquina (15) separado.
+
+> Feito na 18.1: [VERIFICACAO-v0.3.md](VERIFICACAO-v0.3.md) (seções 1–4 no notebook, 5 na máquina com NVIDIA); README e PRODUCT passam a descrever as 5 novidades. O checklist foi escrito a partir do código, não de uso real: ajuste o que a primeira rodada mostrar.
 
 ### 18.2 Release
 - [ ] Propor o número da versão (proposta: `v0.3.0`, com beta antes se o dono quiser) e **esperar aprovação do dono** antes de criar a tag.
