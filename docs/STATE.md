@@ -4,8 +4,8 @@
 
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1 feita, falta ver o UAC no notebook)
-**Próxima subfase:** [11.2 Limpeza](ROADMAP.md#112-limpeza)
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1 e 11.2 feitas, falta rodar no notebook com UAC)
+**Próxima subfase:** [11.3 Otimização do Windows](ROADMAP.md#113-otimização-do-windows)
 
 ## Progresso da v0.2
 
@@ -15,7 +15,7 @@
 | 8 Segundo plano e desligar tela | 🟨 em andamento (8.1–8.3 feitas, falta verificar no notebook) |
 | 9 Pílula flutuante | 🟨 em andamento (9.1–9.4 feitas, falta verificar rodando o app) |
 | 10 Painel rápido e flyout | 🟨 em andamento (10.1–10.3 feitas, falta verificar rodando o app) |
-| 11 Ferramentas com administrador | 🟨 em andamento (11.1 feita, falta ver o UAC no notebook) |
+| 11 Ferramentas com administrador | 🟨 em andamento (11.1 e 11.2 feitas, falta rodar no notebook com UAC) |
 | 12 Painel em abas, instalador, release | ⬜ não iniciada |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ no `main` · ⚠️ no `main` mas falta verificar no notebook
@@ -51,6 +51,8 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 - **Fase 11 exige UAC e processo separado**: 11.1 começou com o aval do dono (2026-11-18); confirmar o escopo da 11.2/11.3 antes de implementar.
 
 ## Notas da última sessão
+
+- 11.2: `Cleanup` + tarefas `limpeza` e `limpeza-lixeira` + 2 itens no menu da bandeja. Um teste meu chamou `DeleteContents("C:")` e apagou itens da pasta atual (caminho relativo ao disco); corrigido com `IsPathFullyQualified` antes de resolver e teste de regressão. Estrago ficou só na pasta de build. Não rodei a limpeza real.
 
 - 11.1: `ElevatedTask` (`Parse`/`RunElevated`/`LaunchAsync`) + desvio em `Program` antes do mutex + `TrayApp.RunTool` (balão). Tarefas ainda são marcadores; nenhum botão chama `RunTool` (vem na 11.2). Não vi o UAC de verdade.
 - 10.3: `ModeStore` + `OnModeStateChanged`; `PublishMode` removido. Warnings antigos de CS0108 corrigidos (`QuickPanel.Highlight`, `PillForm.SnapToEdge`).

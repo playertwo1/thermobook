@@ -28,6 +28,7 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | `src/ThermoBook/Services/SettingsStore.cs` | `settings.json` em `%AppData%\ThermoBook`. |
 | `src/ThermoBook/Services/StartupService.cs` | Run key do "Iniciar com o Windows". |
 | `src/ThermoBook/Services/TempAlert.cs` | Lógica do alerta de temperatura. |
+| `src/ThermoBook/Services/Cleanup.cs` | Fase 11.2: limpeza de temporários, DNS e Lixeira (processo elevado). |
 | `src/ThermoBook/Services/ElevatedTask.cs` | Fase 11: relança o app com UAC (`--tarefa`), lista fechada de tarefas, relatório JSON. |
 | `tests/ThermoBook.Tests/CoreTests.cs` | Testes xUnit. |
 | `installer/ThermoBook.iss` | Instalador Inno Setup. |
@@ -44,4 +45,4 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | `src/ThermoBook/Services/BackgroundMode.cs` | 8.3 |
 | `src/ThermoBook/Pill/PillForm.cs`, `PillLayout.cs`, `PillDocking.cs` | 9 |
 | `src/ThermoBook/Pill/PillFlyout.cs`, `QuickPanel.cs` | 10 |
-| `src/ThermoBook/Services/Cleanup.cs`, `Tweaks.cs` | 11.2, 11.3 |
+| `src/ThermoBook/Services/Tweaks.cs` | 11.3 |

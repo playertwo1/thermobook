@@ -205,11 +205,13 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 11.1: `ElevatedTask` com `Parse` (aceita só `--tarefa <limpeza|otimizacao> --relatorio <caminho completo .json>`, nessa ordem e nada mais), `RunElevated` (roda a tarefa, grava o relatório com `CreateNew`, então o processo elevado nunca sobrescreve um arquivo existente) e `LaunchAsync` (`runas`, espera o processo, lê e apaga o relatório; UAC cancelado, erro 1223, vira "Cancelado" e nunca lança). `Program` desvia para o lado elevado antes do mutex e da bandeja; `TrayApp.RunTool` mostra o balão (erro só quando a tarefa falha). Testado: parser (válidos e 9 inválidos), arquivo existente não é sobrescrito, UAC cancelado simulado, ida e volta do relatório. Rodei o `.exe` direto com `--tarefa`: grava o relatório e sai sem abrir janela. As duas tarefas ainda devolvem "ainda não implementada" (corpos na 11.2 e na 11.3), e nenhum botão chama `RunTool` ainda (chega com a 11.2). **Falta verificar no notebook:** o UAC aparecer de verdade e "Não" mostrar o balão "Cancelado".
 
 ### 11.2 Limpeza
-- [ ] Porta o `.bat`: `%TEMP%`, `C:\Windows\Temp`, relatórios WER e crash dumps, `SoftwareDistribution\Download`, pastas vazias, cache DNS. Itens em uso são pulados em silêncio.
-- [ ] **Esvaziar a Lixeira** é opção separada, desmarcada por padrão (não tem volta).
-- [ ] Mede o espaço livre no C: antes e depois.
+- [x] Porta o `.bat`: `%TEMP%`, `C:\Windows\Temp`, relatórios WER e crash dumps, `SoftwareDistribution\Download`, pastas vazias, cache DNS. Itens em uso são pulados em silêncio.
+- [x] **Esvaziar a Lixeira** é opção separada, desmarcada por padrão (não tem volta).
+- [x] Mede o espaço livre no C: antes e depois.
 
 **Pronto quando:** rodar duas vezes seguidas: a primeira libera espaço, a segunda diz "já estava limpo"; nada fora das pastas listadas é apagado (teste com pasta temporária falsa).
+
+> Feito no PR da 11.2: `Cleanup` (`DeleteContents` apaga só o conteúdo das 7 pastas da lista e mantém a pasta; em uso é pulado; junction/link é removido sem seguir o destino; recusa caminho relativo e raiz de disco) + `Run` (mede o C: antes/depois, cache DNS por `DnsFlushResolverCache` e Lixeira por `SHEmptyRecycleBin`, sem PowerShell). Tarefa nova `limpeza-lixeira` (a lista fechada passou a ter 3 nomes) para a Lixeira ser opção separada; o menu da bandeja tem "Limpar temporários (administrador)..." e "Limpar e esvaziar a Lixeira..." (esta pede confirmação, "não tem volta"). O passo 5 do `.bat` (pastas vazias) está incluído no passo de apagar o conteúdo. Testado com pastas falsas: duas rodadas seguidas (a segunda não acha nada), nada fora da pasta, item em uso, link, arquivo somente leitura. **Falta no notebook:** rodar de verdade com UAC (o "1,2 GB liberados" real e "Já estava limpo" na segunda vez), DNS e Lixeira. Eu não rodei a limpeza real na sua máquina.
 
 ### 11.3 Otimização do Windows
 - [ ] Tela com itens marcáveis, agrupados como o `.ps1`: Privacidade e IA (Bing, Copilot, anúncios, telemetria), Desempenho (transparência, apps em segundo plano, Delivery Optimization), Disco (TRIM), Apps pré-instalados.

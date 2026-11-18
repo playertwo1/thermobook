@@ -64,6 +64,14 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Desligar a tela", null, (_, _) => DisplayService.TurnOff())
             { ToolTipText = "Desliga o monitor sem suspender o PC. Mexer o mouse religa." });
+        _menu.Items.Add(new ToolStripMenuItem("Limpar temporários (administrador)...", null, (_, _) => RunTool("limpeza"))
+            { ToolTipText = "Apaga temporários, relatórios de erro e cache do Windows Update. Pede permissão de administrador." });
+        _menu.Items.Add(new ToolStripMenuItem("Limpar e esvaziar a Lixeira...", null, (_, _) =>
+        {
+            var ok = MessageBox.Show("Isto também esvazia a Lixeira de todas as unidades. Não tem volta. Continuar?",
+                "ThermoBook", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+            if (ok == DialogResult.OK) RunTool("limpeza-lixeira");
+        }));
         _flyout = new PillFlyout(_pill);
         _quick = new QuickPanel(m => ApplyMode(m), ToggleBackground, DisplayService.TurnOff, ShowPanel);
         _pill.Clicked += ToggleQuickPanel;
