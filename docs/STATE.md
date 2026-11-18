@@ -3,9 +3,9 @@
 > Atualize este arquivo no mesmo commit de cada subfase concluída. Mantenha curto: o histórico fica no git e no [STATE arquivado da v0.2](archive/STATE-v0.2.md).
 
 **Atualizado em:** 2026-11-18
-**Versão publicada:** v0.1.0; pré-lançamento v0.2.0-beta.1
+**Versão publicada:** v0.1.0; pré-lançamentos v0.2.0-beta.1 e v0.3.0-beta.2
 **Pendente da v0.2:** verificação no notebook pelo dono ([checklist](VERIFICACAO.md)) e tag `v0.2.0` com aprovação. As fases 0–12 estão em [archive/ROADMAP-v0.2.md](archive/ROADMAP-v0.2.md).
-**Próxima subfase:** [18.2 Release](ROADMAP.md#182-release): só depois de o dono passar o [checklist da v0.3](VERIFICACAO-v0.3.md) (seções 1–4 no notebook; a 15 numa máquina com NVIDIA) e aprovar o número da versão (proposta: `v0.3.0`, com beta antes). Sem aprovação, nada de tag.
+**Próxima subfase:** [18.2 Release](ROADMAP.md#182-release): `v0.3.0-beta.2` publicada; falta o dono passar o [checklist da v0.3](VERIFICACAO-v0.3.md) (seções 1–4 no notebook; a 15 numa máquina com NVIDIA) e aprovar a `v0.3.0` final.
 
 ## Progresso
 

@@ -4,7 +4,6 @@
 
 <p align="center">
   <a href="https://github.com/playertwo1/thermobook/releases"><img alt="Última versão" src="https://img.shields.io/github/v/release/playertwo1/thermobook?include_prereleases&label=vers%C3%A3o"></a>
-  <a href="https://github.com/playertwo1/thermobook/actions/workflows/build.yml"><img alt="Build" src="https://github.com/playertwo1/thermobook/actions/workflows/build.yml/badge.svg"></a>
   <img alt="Windows x64" src="https://img.shields.io/badge/Windows-x64-0078D4">
 </p>
 
@@ -20,7 +19,7 @@
 
 Ele substitui uma pasta de scripts `.bat`/`.ps1` (modos de energia, tampa fechada sem suspender, desligar a tela, limpeza, otimização) por um app só, **sem rodar como administrador** e **sem driver de kernel**.
 
-> **Estado:** a [v0.1.0](https://github.com/playertwo1/thermobook/releases/tag/v0.1.0) (bandeja e painel) é a versão estável. A **v0.2** (pílula, 6 modos, segundo plano, ferramentas) está no [pré-lançamento v0.2.0-beta.1](https://github.com/playertwo1/thermobook/releases/tag/v0.2.0-beta.1) e em [verificação no notebook](docs/VERIFICACAO.md). Modo automático, limpeza agendada, histórico, GPU NVIDIA e atualização estão no `main`, com [checklist próprio](docs/VERIFICACAO-v0.3.md), e ainda sem versão publicada.
+> **Estado:** a [v0.1.0](https://github.com/playertwo1/thermobook/releases/tag/v0.1.0) (bandeja e painel) é a versão estável. A **v0.3** (pílula, 6 modos, segundo plano, ferramentas, modo automático, limpeza agendada, histórico, GPU NVIDIA e atualização automática) está no [pré-lançamento v0.3.0-beta.2](https://github.com/playertwo1/thermobook/releases/tag/v0.3.0-beta.2) e em [verificação no notebook](docs/VERIFICACAO-v0.3.md).
 
 ## Sumário
 
@@ -172,11 +171,11 @@ dotnet run --project src/ThermoBook
 Instalador (precisa do Inno Setup 6: `winget install JRSoftware.InnoSetup`):
 
 ```
-dotnet publish src/ThermoBook -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
-ISCC installer\ThermoBook.iss
+dotnet publish src/ThermoBook -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:Version=0.3.0-beta.2 -o publish
+ISCC installer\ThermoBook.iss /DMyAppVersion=0.3.0-beta.2
 ```
 
-O instalador sai em `installer\Output\`. Uma tag `v*` enviada ao GitHub dispara o [`release.yml`](.github/workflows/release.yml), que testa, gera o instalador e publica a Release (tag com hífen, como `v0.2.0-beta.1`, sai como pré-lançamento).
+O instalador sai em `installer\Output\`. A publicação de novas releases é feita localmente via `git tag` e `gh release create` após rodar os testes (`dotnet test -c Release`).
 
 ## Organização do repositório
 
