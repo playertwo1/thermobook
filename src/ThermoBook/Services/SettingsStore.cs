@@ -13,10 +13,12 @@ namespace ThermoBook.Services;
 /// <param name="ShowPill">Mostra a pílula flutuante (ligada por padrão).</param>
 /// <param name="TweakBackup">Valores anteriores dos ajustes de HKCU da otimização (null = não existia), para o Desfazer.</param>
 /// <param name="Auto">Modo automático por regra; null = nunca configurado (desligado, a interface mostra <see cref="AutoRules.Default"/>).</param>
+/// <param name="CleanupAuto">Horário da limpeza agendada que o usuário pediu (a tarefa está no Agendador); null = desligada.</param>
 internal sealed record Settings(string? Profile = null, double AlertCelsius = 90, int AlertSeconds = 30, bool AutoCool = false, string Hotkey = HotkeyService.Default,
     Dictionary<string, Dictionary<string, PairValue>>? BackgroundPlans = null,
     string? PillMonitor = null, Dictionary<string, PillPosition>? PillPositions = null,
-    bool ShowPill = true, Dictionary<string, int?>? TweakBackup = null, AutoRules? Auto = null);
+    bool ShowPill = true, Dictionary<string, int?>? TweakBackup = null, AutoRules? Auto = null,
+    CleanupSchedule? CleanupAuto = null);
 
 /// <summary>Guarda as configurações em %AppData%\ThermoBook\settings.json.</summary>
 internal sealed class SettingsStore(string path)

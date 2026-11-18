@@ -30,8 +30,16 @@ internal static class Uninstall
         Step(applyDefaultMode);
 
         // Ajustes de máquina só existem se o usuário os aplicou com UAC; desfazer pede o UAC de novo. Recusar deixa como está.
-        if (Tweaks.LoadMachineBackup(machineRoot).Count > 0)
-            Step(() => { if (elevated("otimizacao-desfazer").Outcome != TaskOutcome.Ok) ok = false; });
+        // A limpeza agendada também precisa do UAC (tarefa e cópia em %ProgramFiles%): com os dois, um só pedido.
+        bool machine = Tweaks.LoadMachineBackup(machineRoot).Count > 0, scheduled = s.CleanupAuto is not null;
+        string? task = (machine, scheduled) switch
+        {
+            (true, true) => "desinstalar-tudo",
+            (true, false) => "otimizacao-desfazer",
+            (false, true) => "limpeza-desagendar",
+            _ => null,
+        };
+        if (task is not null) Step(() => { if (elevated(task).Outcome != TaskOutcome.Ok) ok = false; });
 
         return ok ? 0 : 1;
     }

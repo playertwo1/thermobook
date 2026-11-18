@@ -29,7 +29,19 @@ internal static class ElevatedTask
         ["otimizacao-entrega-trim"] = () => Tweaks.RunMachine(delivery: true, trim: true),
         ["otimizacao-desfazer"] = Tweaks.RunUndoMachine,
         ["limpeza-desagendar"] = ScheduledCleanup.Unschedule, // limpeza-agendar:<horário> é resolvida em Resolve
+        ["desinstalar-tudo"] = UninstallMachine, // um só UAC na desinstalação quando há ajustes de máquina e limpeza agendada
     };
+
+    private static TaskReport UninstallMachine()
+    {
+        var reports = new List<TaskReport>();
+        foreach (var step in new Func<TaskReport>[] { Tweaks.RunUndoMachine, ScheduledCleanup.Unschedule })
+        {
+            try { reports.Add(step()); }
+            catch (Exception ex) { reports.Add(new(TaskOutcome.Failed, ex.Message)); } // um passo que falha não impede o outro
+        }
+        return new(reports.All(r => r.Outcome == TaskOutcome.Ok) ? TaskOutcome.Ok : TaskOutcome.Failed, string.Join(" ", reports.Select(r => r.Message)));
+    }
 
     internal const string SchedulePrefix = "limpeza-agendar:";
 

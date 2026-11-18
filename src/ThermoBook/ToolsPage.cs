@@ -21,6 +21,15 @@ internal sealed class ToolsPage : UserControl
     private readonly Func<string, Task> _removeApp;
     private readonly Func<string> _defenderStatus;
     private readonly Func<string, bool> _confirm;
+    private readonly Func<CleanupSchedule?> _getSchedule;
+    private readonly Action<CleanupSchedule?> _setSchedule;
+    private readonly Func<CleanupLog?> _readLog;
+    private bool _syncing;
+
+    internal readonly ComboBox ScheduleKind, ScheduleDay;
+    internal readonly NumericUpDown ScheduleHour, ScheduleMinute;
+    internal readonly Button ScheduleApply;
+    internal readonly Label ScheduleLast;
 
     internal readonly CheckBox Recycle;
     internal readonly Dictionary<Tweak, CheckBox> TweakBoxes = [];
@@ -33,8 +42,12 @@ internal sealed class ToolsPage : UserControl
     /// <param name="root">Só nos testes: chave falsa usada no lugar de HKCU e de HKLM.</param>
     public ToolsPage(Dictionary<string, int?> backup, Action<Dictionary<string, int?>> persist, RegistryKey? root = null,
         Func<string, Task<TaskReport>>? elevated = null, Func<IReadOnlyList<BloatApp>>? listApps = null,
-        Func<string, Task>? removeApp = null, Func<string>? defenderStatus = null, Func<string, bool>? confirm = null)
+        Func<string, Task>? removeApp = null, Func<string>? defenderStatus = null, Func<string, bool>? confirm = null,
+        Func<CleanupSchedule?>? getSchedule = null, Action<CleanupSchedule?>? setSchedule = null, Func<CleanupLog?>? readLog = null)
     {
+        _getSchedule = getSchedule ?? (() => null);
+        _setSchedule = setSchedule ?? (_ => { });
+        _readLog = readLog ?? (() => ScheduledCleanup.ReadLog(ScheduledCleanup.LogPath));
         _backup = backup;
         _persist = persist;
         _userRoot = root ?? Registry.CurrentUser;
@@ -59,6 +72,22 @@ internal sealed class ToolsPage : UserControl
         _clean.Margin = new Padding(12, 6, 3, 6);
         _clean.Click += async (_, _) => await CleanAsync();
         _list.Controls.Add(_clean);
+
+        _list.Controls.Add(Theme.Header("Limpeza automática"));
+        _list.Controls.Add(Theme.Note("Roda sozinha pelo Agendador de Tarefas, só na tomada, sem esvaziar a Lixeira. Ligar e desligar pedem administrador (uma vez). Guarda uma cópia do app em Arquivos de Programas."));
+        ScheduleKind = Combo(130, "Desligada", "Toda semana", "Todo mês");
+        ScheduleDay = Combo(130);
+        ScheduleHour = Number(0, 23);
+        ScheduleMinute = Number(0, 59);
+        ScheduleKind.SelectedIndexChanged += (_, _) => { if (!_syncing) FillDays(); };
+        ScheduleApply = Theme.Button("Salvar agendamento (administrador)");
+        ScheduleApply.Click += async (_, _) => await ApplyScheduleAsync();
+        _list.Controls.Add(Row(ScheduleKind, ScheduleDay, Caption("às"), ScheduleHour, Caption(":"), ScheduleMinute));
+        ScheduleApply.Margin = new Padding(12, 6, 3, 3);
+        _list.Controls.Add(ScheduleApply);
+        ScheduleLast = new Label { AutoSize = true, MaximumSize = new Size(640, 0), ForeColor = Theme.Muted, Margin = new Padding(12, 2, 3, 6) };
+        _list.Controls.Add(ScheduleLast);
+        ShowSchedule();
 
         foreach (var group in Tweaks.All.GroupBy(t => t.Group))
         {
@@ -93,6 +122,98 @@ internal sealed class ToolsPage : UserControl
         Controls.Add(bottom);
         RefreshApplied();
         ResumeLayout();
+    }
+
+    private static ComboBox Combo(int width, params string[] items)
+    {
+        var box = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = width, BackColor = Theme.Raised, ForeColor = Theme.Fg, FlatStyle = FlatStyle.Flat, Margin = new Padding(4, 6, 4, 3) };
+        box.Items.AddRange(items);
+        return box;
+    }
+
+    private static NumericUpDown Number(int min, int max) =>
+        new() { Minimum = min, Maximum = max, Width = 52, BackColor = Theme.Raised, ForeColor = Theme.Fg, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(4, 6, 4, 3) };
+
+    private static Label Caption(string text) => new() { Text = text, AutoSize = true, ForeColor = Theme.Fg, Margin = new Padding(4, 9, 4, 0) };
+
+    private static FlowLayoutPanel Row(params Control[] controls)
+    {
+        var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(8, 0, 0, 0) };
+        row.Controls.AddRange(controls);
+        return row;
+    }
+
+    /// <summary>Dias da lista conforme a frequência: dias da semana (semanal) ou 1–28 (mensal); vazia e desligada se "Desligada".</summary>
+    private void FillDays()
+    {
+        int previous = ScheduleDay.SelectedIndex;
+        ScheduleDay.Items.Clear();
+        if (ScheduleKind.SelectedIndex == 1)
+        {
+            var pt = System.Globalization.CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat;
+            for (int d = 0; d < 7; d++) ScheduleDay.Items.Add(pt.GetDayName((DayOfWeek)d));
+        }
+        else if (ScheduleKind.SelectedIndex == 2)
+            for (int d = 1; d <= 28; d++) ScheduleDay.Items.Add($"dia {d}");
+        ScheduleDay.Enabled = ScheduleHour.Enabled = ScheduleMinute.Enabled = ScheduleKind.SelectedIndex > 0;
+        if (ScheduleDay.Items.Count > 0) ScheduleDay.SelectedIndex = Math.Clamp(previous, 0, ScheduleDay.Items.Count - 1);
+    }
+
+    /// <summary>O que o usuário escolheu na tela, ou null se "Desligada".</summary>
+    internal CleanupSchedule? ChosenSchedule() => ScheduleKind.SelectedIndex switch
+    {
+        1 => new(ScheduleFrequency.Weekly, ScheduleDay.SelectedIndex, (int)ScheduleHour.Value, (int)ScheduleMinute.Value),
+        2 => new(ScheduleFrequency.Monthly, ScheduleDay.SelectedIndex + 1, (int)ScheduleHour.Value, (int)ScheduleMinute.Value),
+        _ => null,
+    };
+
+    /// <summary>Mostra o que está salvo e a última limpeza automática; não dispara nada.</summary>
+    internal void ShowSchedule()
+    {
+        _syncing = true;
+        try
+        {
+            var s = _getSchedule();
+            ScheduleKind.SelectedIndex = s is null ? 0 : s.Frequency == ScheduleFrequency.Weekly ? 1 : 2;
+            FillDays();
+            if (s is not null)
+            {
+                ScheduleDay.SelectedIndex = s.Frequency == ScheduleFrequency.Weekly ? s.Day : s.Day - 1;
+                ScheduleHour.Value = s.Hour;
+                ScheduleMinute.Value = s.Minute;
+            }
+            else { ScheduleHour.Value = CleanupSchedule.Default.Hour; ScheduleMinute.Value = CleanupSchedule.Default.Minute; }
+        }
+        finally { _syncing = false; }
+        ShowLast();
+    }
+
+    internal void ShowLast()
+    {
+        var log = _readLog();
+        ScheduleLast.Text = log is null
+            ? "Última limpeza automática: ainda não rodou."
+            : $"Última limpeza automática: {log.When:dd/MM/yyyy HH:mm}, " + (log.Outcome == TaskOutcome.Ok ? log.Message : $"falhou ({log.Message})");
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible) ShowLast(); // o resultado muda sem o app: lê o arquivo de novo ao mostrar a aba
+    }
+
+    /// <summary>Liga, troca ou desliga a tarefa no Agendador (UAC). Só guarda o horário se deu certo.</summary>
+    internal async Task ApplyScheduleAsync()
+    {
+        var chosen = ChosenSchedule();
+        var current = _getSchedule();
+        if (chosen is null && current is null) { _status.Text = "A limpeza automática já está desligada."; return; }
+        SetBusy(true);
+        var report = await _elevated(chosen is null ? "limpeza-desagendar" : ElevatedTask.SchedulePrefix + chosen.Format());
+        if (report.Outcome == TaskOutcome.Ok) _setSchedule(chosen);
+        _status.Text = report.Message;
+        SetBusy(false);
+        ShowSchedule(); // volta ao que ficou valendo (se cancelou ou falhou, o anterior)
     }
 
     private static CheckBox Check(string text, bool @checked) =>
@@ -204,7 +325,7 @@ internal sealed class ToolsPage : UserControl
 
     private void SetBusy(bool busy)
     {
-        _clean.Enabled = _apply.Enabled = _undo.Enabled = !busy; // um UAC por vez
+        _clean.Enabled = _apply.Enabled = _undo.Enabled = ScheduleApply.Enabled = !busy; // um UAC por vez
         if (busy) _status.Text = "Trabalhando...";
     }
 }

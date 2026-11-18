@@ -5,7 +5,7 @@
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0; pré-lançamento v0.2.0-beta.1
 **Pendente da v0.2:** verificação no notebook pelo dono ([checklist](VERIFICACAO.md)) e tag `v0.2.0` com aprovação. As fases 0–12 estão em [archive/ROADMAP-v0.2.md](archive/ROADMAP-v0.2.md).
-**Próxima subfase:** [14.2 Interface e desinstalação](ROADMAP.md#142-interface-e-desinstalação) da limpeza agendada.
+**Próxima subfase:** [16.1 Gravação](ROADMAP.md#161-gravação) do histórico em CSV (ordem sugerida: 14 → 16 → 17 → 15 → 18). Antes de seguir, vale verificar as fases 13 e 14 no notebook.
 
 ## Progresso
 
@@ -13,7 +13,7 @@
 |---|---|
 | 0–12 v0.1 e v0.2 | ⚠️ no `main`, falta a verificação da v0.2 no notebook |
 | 13 Modo automático por regra | ⚠️ no `main` mas falta verificar (13.1–13.3 feitas; falta rodar o app e o notebook) |
-| 14 Limpeza agendada | 🟨 em andamento (14.1 feita; falta verificar com UAC) |
+| 14 Limpeza agendada | ⚠️ no `main` mas falta verificar (14.1–14.2 feitas; falta UAC no notebook) |
 | 15 Temperatura da GPU NVIDIA | ⬜ não iniciada |
 | 16 Histórico em CSV e gráfico de 24 h | ⬜ não iniciada |
 | 17 Atualização automática | ⬜ não iniciada |

@@ -49,7 +49,8 @@ internal sealed class TrayApp : ApplicationContext
         Action? openFan = Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Packages", SamsungSettingsPackage))
             ? () => Process.Start("explorer.exe", $@"shell:AppsFolder\{SamsungSettingsPackage}!App")
             : null;
-        var tools = new ToolsPage(new(_settings.TweakBackup ?? []), b => SaveSettings(_settings with { TweakBackup = b }));
+        var tools = new ToolsPage(new(_settings.TweakBackup ?? []), b => SaveSettings(_settings with { TweakBackup = b }),
+            getSchedule: () => _settings.CleanupAuto, setSchedule: s => SaveSettings(_settings with { CleanupAuto = s }));
         _settingsPage = new SettingsPage(ChangeSettings, SetStartup);
         _panel = new MainForm(m => ApplyMode(m), (turbo, limit) => ApplyPower(turbo, limit), openFan, tools, _settingsPage);
         _ = _panel.Handle; // cria a janela (escondida) para o BeginInvoke do sinal de outra instância

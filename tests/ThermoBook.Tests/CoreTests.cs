@@ -1722,6 +1722,29 @@ public class UninstallTests : IDisposable
         using (var k = _root.CreateSubKey(@"SOFTWARE\ThermoBook")) k.SetValue("Desfazer", "{\"x\":1}");
         Assert.Equal(1, Run(uac: TaskOutcome.Cancelled));
     }
+
+    [Fact]
+    public void Limpeza_agendada_sozinha_pede_so_o_desagendar()
+    {
+        _store.Save(new Settings(CleanupAuto: CleanupSchedule.Default));
+        Assert.Equal(0, Run());
+        Assert.Equal(["limpeza-desagendar"], _elevated);
+    }
+
+    [Fact]
+    public void Limpeza_agendada_e_ajustes_de_maquina_dividem_um_so_UAC()
+    {
+        using (var k = _root.CreateSubKey(@"SOFTWARE\ThermoBook")) k.SetValue("Desfazer", "{\"x\":1}");
+        _store.Save(new Settings(CleanupAuto: CleanupSchedule.Default));
+        Assert.Equal(0, Run());
+        Assert.Equal(["desinstalar-tudo"], _elevated);
+    }
+
+    [Fact]
+    public void Tarefa_combinada_existe_na_lista_fechada()
+    {
+        Assert.NotNull(ElevatedTask.Resolve("desinstalar-tudo"));
+    }
 }
 
 public class CleanupTests
@@ -1968,6 +1991,138 @@ public class TweaksTests
         Assert.Empty(removidos);
         Assert.Empty(perguntas);
         Assert.Equal(["otimizacao-entrega-trim"], elevadas);
+    }
+
+    // ---- limpeza automática (14.2) ----
+
+    private sealed class Agenda
+    {
+        public CleanupSchedule? Salva;
+        public CleanupLog? Log;
+        public TaskReport Resposta = new(TaskOutcome.Ok, "Limpeza agendada.");
+    }
+
+    private static ToolsPage TelaAgenda(Raiz raiz, Agenda ag, List<string> elevadas) =>
+        new(new(), _ => { }, raiz.Key,
+            elevated: task => { elevadas.Add(task); return Task.FromResult(ag.Resposta); },
+            listApps: () => [], removeApp: _ => Task.CompletedTask, defenderStatus: () => "", confirm: _ => true,
+            getSchedule: () => ag.Salva, setSchedule: s => ag.Salva = s, readLog: () => ag.Log);
+
+    [Fact]
+    public void Comeca_desligada_e_mostra_que_nunca_rodou()
+    {
+        using var raiz = new Raiz();
+        using var tela = TelaAgenda(raiz, new(), []);
+        Assert.Equal(0, tela.ScheduleKind.SelectedIndex);
+        Assert.False(tela.ScheduleDay.Enabled);
+        Assert.Null(tela.ChosenSchedule());
+        Assert.Equal("Última limpeza automática: ainda não rodou.", tela.ScheduleLast.Text);
+    }
+
+    [Fact]
+    public void Mostra_o_horario_salvo_e_o_ultimo_resultado()
+    {
+        using var raiz = new Raiz();
+        var ag = new Agenda
+        {
+            Salva = new(ScheduleFrequency.Monthly, 15, 7, 5),
+            Log = new(new DateTime(2026, 11, 15, 7, 5, 30), TaskOutcome.Ok, "1,2 GB liberados"),
+        };
+        using var tela = TelaAgenda(raiz, ag, []);
+        Assert.Equal(2, tela.ScheduleKind.SelectedIndex);
+        Assert.Equal(14, tela.ScheduleDay.SelectedIndex);
+        Assert.Equal((7, 5), ((int)tela.ScheduleHour.Value, (int)tela.ScheduleMinute.Value));
+        Assert.Equal(ag.Salva, tela.ChosenSchedule());
+        Assert.Equal("Última limpeza automática: 15/11/2026 07:05, 1,2 GB liberados", tela.ScheduleLast.Text);
+    }
+
+    [Fact]
+    public void Resultado_com_falha_aparece_como_falha()
+    {
+        using var raiz = new Raiz();
+        using var tela = TelaAgenda(raiz, new() { Log = new(new DateTime(2026, 1, 2, 3, 4, 0), TaskOutcome.Failed, "sem espaço") }, []);
+        Assert.Equal("Última limpeza automática: 02/01/2026 03:04, falhou (sem espaço)", tela.ScheduleLast.Text);
+    }
+
+    [Fact]
+    public async Task Mostrar_ou_mexer_nos_campos_nao_pede_UAC_so_o_botao()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [];
+        var ag = new Agenda();
+        using var tela = TelaAgenda(raiz, ag, elevadas);
+        tela.ScheduleKind.SelectedIndex = 1;
+        tela.ScheduleDay.SelectedIndex = 3;
+        tela.ScheduleHour.Value = 8;
+        tela.ScheduleMinute.Value = 30;
+        Assert.Empty(elevadas);
+        Assert.Null(ag.Salva);
+
+        await tela.ApplyScheduleAsync();
+        Assert.Equal(["limpeza-agendar:semanal:3:8:30"], elevadas);
+        Assert.Equal(new CleanupSchedule(ScheduleFrequency.Weekly, 3, 8, 30), ag.Salva);
+    }
+
+    [Fact]
+    public async Task Mensal_usa_o_dia_do_mes_de_1_a_28()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [];
+        using var tela = TelaAgenda(raiz, new(), elevadas);
+        tela.ScheduleKind.SelectedIndex = 2;
+        Assert.Equal(28, tela.ScheduleDay.Items.Count);
+        tela.ScheduleDay.SelectedIndex = 0;
+        await tela.ApplyScheduleAsync();
+        Assert.Equal(["limpeza-agendar:mensal:1:12:00"], elevadas);
+    }
+
+    [Fact]
+    public async Task UAC_cancelado_mantem_o_horario_anterior_e_volta_a_tela()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [];
+        var anterior = new CleanupSchedule(ScheduleFrequency.Weekly, 0, 12, 0);
+        var ag = new Agenda { Salva = anterior, Resposta = new(TaskOutcome.Cancelled, "Cancelado") };
+        using var tela = TelaAgenda(raiz, ag, elevadas);
+        tela.ScheduleKind.SelectedIndex = 2;
+        await tela.ApplyScheduleAsync();
+        Assert.Equal(anterior, ag.Salva);
+        Assert.Equal(1, tela.ScheduleKind.SelectedIndex); // voltou ao que está valendo
+    }
+
+    [Fact]
+    public async Task Desligar_agendada_remove_a_tarefa_e_apaga_o_horario()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [];
+        var ag = new Agenda { Salva = CleanupSchedule.Default };
+        using var tela = TelaAgenda(raiz, ag, elevadas);
+        tela.ScheduleKind.SelectedIndex = 0;
+        await tela.ApplyScheduleAsync();
+        Assert.Equal(["limpeza-desagendar"], elevadas);
+        Assert.Null(ag.Salva);
+    }
+
+    [Fact]
+    public async Task Desligada_e_ja_desligada_nao_pede_UAC()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [];
+        using var tela = TelaAgenda(raiz, new(), elevadas);
+        await tela.ApplyScheduleAsync();
+        Assert.Empty(elevadas);
+    }
+
+    [Fact]
+    public void Horario_salvo_e_gravado_no_settings_e_sobrevive()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "thermobook-tests", Guid.NewGuid() + ".json");
+        var store = new SettingsStore(path);
+        store.Save(new Settings(CleanupAuto: new(ScheduleFrequency.Monthly, 5, 9, 0)));
+        Assert.Equal(new CleanupSchedule(ScheduleFrequency.Monthly, 5, 9, 0), store.Load().CleanupAuto);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "Profile": "Frio" }""");
+        Assert.Null(store.Load().CleanupAuto); // settings antigo
     }
 
     [Fact]
