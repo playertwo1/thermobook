@@ -159,6 +159,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         catch (Exception ex) { ShowError($"Não consegui mudar o modo segundo plano: {ex.Message}"); }
         _background.Checked = BackgroundMode.IsOn(_settings);
+        _pill.SetMode(PowerService.Current(), BackgroundMode.IsOn(_settings));
         UpdateIcon(force: true);
     }
 
@@ -210,6 +211,7 @@ internal sealed class TrayApp : ApplicationContext
             _profileLabel = current?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, {limit}%)";
             _turbo = turbo;
             _panel.ShowPower(turbo, limit, current, syncControls);
+            _pill.SetMode(current, BackgroundMode.IsOn(_settings));
         }
         catch (Exception ex)
         {

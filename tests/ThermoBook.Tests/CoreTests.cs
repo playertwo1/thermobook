@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.Windows.Forms;
 using ThermoBook.Services;
 
 namespace ThermoBook.Tests;
@@ -347,6 +349,87 @@ public class PillTests
         form.Push(s);
         Assert.False(form.IsDisposed);
         Assert.True(form.IsHandleCreated);
+    }
+
+    [Theory]
+    [InlineData(Orientation.Vertical, 1f)]
+    [InlineData(Orientation.Vertical, 1.25f)]
+    [InlineData(Orientation.Vertical, 1.5f)]
+    [InlineData(Orientation.Vertical, 2f)]
+    [InlineData(Orientation.Horizontal, 1f)]
+    [InlineData(Orientation.Horizontal, 1.25f)]
+    [InlineData(Orientation.Horizontal, 1.5f)]
+    [InlineData(Orientation.Horizontal, 2f)]
+    public void Linhas_nao_se_sobrepoem_e_cabem_na_janela(Orientation o, float scale)
+    {
+        var (size, items) = PillLayout.Compute(o, scale);
+        var bounds = new Rectangle(Point.Empty, size);
+        Assert.Equal(PillLayout.ItemCount, items.Length);
+        for (int i = 0; i < items.Length; i++)
+        {
+            var it = items[i];
+            Assert.True(bounds.Contains(it.Row), $"linha {i} fora da janela");
+            Assert.True(it.Row.Contains(it.Value), $"valor {i} fora da linha");
+            Assert.Equal(i is PillLayout.Cpu or PillLayout.Gpu or PillLayout.Ram, it.Meter is not null);
+            if (it.Meter is { } m)
+            {
+                Assert.True(it.Row.Contains(m), $"medidor {i} fora da linha");
+                Assert.False(m.IntersectsWith(it.Value), $"medidor {i} sobrepõe o valor");
+            }
+            for (int j = i + 1; j < items.Length; j++)
+                Assert.False(it.Row.IntersectsWith(items[j].Row), $"linhas {i} e {j} se sobrepõem");
+        }
+    }
+
+    [Fact]
+    public void Vertical_tem_36_px_de_largura_e_linhas_de_metrica_de_28()
+    {
+        var (size, items) = PillLayout.Compute(Orientation.Vertical, 1f);
+        Assert.Equal(36, size.Width);
+        foreach (var i in new[] { PillLayout.Cpu, PillLayout.Gpu, PillLayout.Ram })
+            Assert.Equal(28, items[i].Row.Height);
+    }
+
+    [Fact]
+    public void Horizontal_tem_36_px_de_altura()
+    {
+        var (size, _) = PillLayout.Compute(Orientation.Horizontal, 1f);
+        Assert.Equal(36, size.Height);
+    }
+
+    [Fact]
+    public void Indisponivel_vira_null_no_estado()
+    {
+        var semTemp = PillState.From(Snap(cpu: 12, gpu: 2, ramUsed: 60, temp: 54) with { Temps = [] });
+        Assert.Null(semTemp.Temp);
+        var semRam = PillState.From(Snap(cpu: 12, gpu: 2, ramUsed: 60, temp: 54) with { RamTotal = 0 });
+        Assert.Null(semRam.Ram);
+        var semCpu = PillState.From(Snap(cpu: double.NaN, gpu: 2, ramUsed: 60, temp: 54));
+        Assert.Null(semCpu.Cpu);
+    }
+
+    [Fact]
+    public void Nome_acessivel_de_cada_linha()
+    {
+        var st = new PillState(54, 13, 2, 61);
+        Assert.Equal("Temperatura: 54 graus", PillForm.RowName(PillLayout.Temp, st, null, false));
+        Assert.Equal("Processador: 13 por cento", PillForm.RowName(PillLayout.Cpu, st, null, false));
+        Assert.Equal("Memória RAM: indisponível", PillForm.RowName(PillLayout.Ram, st with { Ram = null }, null, false));
+        Assert.Equal("Modo de energia: Personalizado", PillForm.RowName(PillLayout.Mode, st, null, false));
+        Assert.Equal("Modo de energia: Frio, segundo plano ligado",
+            PillForm.RowName(PillLayout.Mode, st, PowerService.ModeByName("Frio"), true));
+    }
+
+    [Fact]
+    public void Janela_acompanha_a_orientacao()
+    {
+        using var form = new PillForm();
+        _ = form.Handle;
+        float k = form.DeviceDpi / 96f;
+        form.PillOrientation = Orientation.Horizontal;
+        Assert.Equal(PillLayout.Compute(Orientation.Horizontal, k).Size, form.ClientSize);
+        form.PillOrientation = Orientation.Vertical;
+        Assert.Equal(PillLayout.Compute(Orientation.Vertical, k).Size, form.ClientSize);
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
