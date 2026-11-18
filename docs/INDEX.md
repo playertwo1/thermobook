@@ -43,7 +43,8 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | `src/ThermoBook/Services/AutoMode.cs` | Fase 13: regras do modo automático (tomada/bateria, programa aberto, temperatura alta) e decisão de quando trocar. |
 | `src/ThermoBook/Services/CleanupSchedule.cs` | Fase 14: limpeza agendada (horário, definição da tarefa, Agendador de Tarefas por COM, `limpeza.json`). |
 | `src/ThermoBook/Services/HistoryWriter.cs` | Fase 16: histórico em CSV (um minuto por linha, um arquivo por dia, 30 dias). |
-| `src/ThermoBook/Services/UpdateService.cs` | Fase 17: versão e consulta à API de Releases do GitHub (só verifica; baixar e instalar vem na 17.2). |
+| `src/ThermoBook/Services/UpdateService.cs` | Fase 17: versão e consulta à API de Releases do GitHub (só verifica). |
+| `src/ThermoBook/Services/UpdateInstaller.cs` | Fase 17: baixa o instalador, confere o SHA-256 e o roda em modo silencioso. |
 | `src/ThermoBook/ToolsPage.cs` | Aba Ferramentas: limpeza (11.2) e otimização do Windows (11.3: itens marcáveis, Aplicar, Desfazer). |
 | `tests/ThermoBook.Tests/CoreTests.cs` | Testes xUnit. |
 | `installer/ThermoBook.iss` | Instalador Inno Setup. |

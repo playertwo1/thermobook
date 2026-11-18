@@ -15,11 +15,16 @@ namespace ThermoBook.Services;
 /// <param name="Auto">Modo automático por regra; null = nunca configurado (desligado, a interface mostra <see cref="AutoRules.Default"/>).</param>
 /// <param name="CleanupAuto">Horário da limpeza agendada que o usuário pediu (a tarefa está no Agendador); null = desligada.</param>
 /// <param name="History">Grava o histórico em CSV (um arquivo por dia, 30 dias) em %AppData%\ThermoBook\historico.</param>
+/// <param name="CheckUpdates">Procura versão nova na Release ao abrir e uma vez por dia. Desligado: nenhuma chamada de rede.</param>
+/// <param name="UpdateBeta">A procura também considera pré-lançamentos.</param>
+/// <param name="LastUpdateCheck">Quando a procura rodou pela última vez (uma por dia).</param>
+/// <param name="NotifiedVersion">Tag da versão já avisada por balão (avisa uma vez por versão).</param>
 internal sealed record Settings(string? Profile = null, double AlertCelsius = 90, int AlertSeconds = 30, bool AutoCool = false, string Hotkey = HotkeyService.Default,
     Dictionary<string, Dictionary<string, PairValue>>? BackgroundPlans = null,
     string? PillMonitor = null, Dictionary<string, PillPosition>? PillPositions = null,
     bool ShowPill = true, Dictionary<string, int?>? TweakBackup = null, AutoRules? Auto = null,
-    CleanupSchedule? CleanupAuto = null, bool History = true);
+    CleanupSchedule? CleanupAuto = null, bool History = true,
+    bool CheckUpdates = true, bool UpdateBeta = false, DateTime? LastUpdateCheck = null, string? NotifiedVersion = null);
 
 /// <summary>Guarda as configurações em %AppData%\ThermoBook\settings.json.</summary>
 internal sealed class SettingsStore(string path)

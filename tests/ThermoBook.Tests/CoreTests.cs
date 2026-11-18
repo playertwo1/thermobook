@@ -2604,6 +2604,152 @@ public class UpdateServiceTests
     }
 }
 
+public class UpdateInstallerTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "thermobook-tests", "upd-" + Guid.NewGuid().ToString("N"));
+    public void Dispose() { if (Directory.Exists(_dir)) Directory.Delete(_dir, true); }
+
+    private static readonly byte[] Bytes = System.Text.Encoding.ASCII.GetBytes(new string('x', 200_000) + "instalador");
+    private static readonly string Sha = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Bytes));
+    private const string Url = "https://github.com/playertwo1/thermobook/releases/download/v0.3.0/ThermoBook-Setup-0.3.0.exe";
+
+    private static UpdateInfo Info(string? sha = "ok", long? size = null, string url = Url, string file = "ThermoBook-Setup-0.3.0.exe") =>
+        new(AppVersion.Parse("0.3.0")!, "v0.3.0", url, file, size ?? Bytes.Length, sha == "ok" ? Sha : sha, "https://github.com/playertwo1/thermobook/releases/tag/v0.3.0");
+
+    private sealed class Fake(Func<HttpResponseMessage> reply) : HttpMessageHandler
+    {
+        public int Calls;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(reply());
+        }
+    }
+
+    private static Fake Serve(byte[]? body = null, System.Net.HttpStatusCode status = System.Net.HttpStatusCode.OK) =>
+        new(() => new(status) { Content = new ByteArrayContent(body ?? Bytes) });
+
+    [Fact]
+    public async Task Baixa_confere_o_hash_e_guarda_o_instalador()
+    {
+        var progresso = new List<int>();
+        var r = await UpdateInstaller.DownloadAsync(Info(), _dir, new Progress<int>(progresso.Add), Serve());
+        Assert.Null(r.Error);
+        Assert.Equal(Path.Combine(_dir, "ThermoBook-Setup-0.3.0.exe"), r.Path);
+        Assert.Equal(Bytes, File.ReadAllBytes(r.Path!));
+        Assert.Empty(Directory.GetFiles(_dir, "*.part"));
+    }
+
+    [Fact]
+    public async Task Hash_diferente_apaga_tudo_e_nao_entrega_caminho()
+    {
+        var r = await UpdateInstaller.DownloadAsync(Info(sha: new string('0', 64)), _dir, null, Serve());
+        Assert.Null(r.Path);
+        Assert.Contains("SHA-256", r.Error);
+        Assert.Empty(Directory.GetFiles(_dir));
+    }
+
+    [Fact]
+    public async Task Sem_hash_na_Release_nem_baixa()
+    {
+        var fake = Serve();
+        var r = await UpdateInstaller.DownloadAsync(Info(sha: null), _dir, null, fake);
+        Assert.Null(r.Path);
+        Assert.Equal(0, fake.Calls);
+        Assert.False(Directory.Exists(_dir));
+    }
+
+    [Theory]
+    [InlineData("http://github.com/playertwo1/thermobook/releases/download/v0.3.0/ThermoBook-Setup-0.3.0.exe")]
+    [InlineData("https://evil.example/ThermoBook-Setup-0.3.0.exe")]
+    public async Task Endereco_fora_do_repositorio_nao_baixa(string url)
+    {
+        var fake = Serve();
+        Assert.Null((await UpdateInstaller.DownloadAsync(Info(url: url), _dir, null, fake)).Path);
+        Assert.Equal(0, fake.Calls);
+    }
+
+    [Theory]
+    [InlineData(@"..\ThermoBook-Setup-0.3.0.exe")]
+    [InlineData(@"sub\ThermoBook-Setup-0.3.0.exe")]
+    [InlineData("")]
+    public async Task Nome_com_caminho_nao_baixa(string file)
+    {
+        var fake = Serve();
+        Assert.Null((await UpdateInstaller.DownloadAsync(Info(file: file), _dir, null, fake)).Path);
+        Assert.Equal(0, fake.Calls);
+    }
+
+    [Fact]
+    public async Task Tamanho_diferente_do_da_Release_e_recusado()
+    {
+        Assert.Null((await UpdateInstaller.DownloadAsync(Info(size: Bytes.Length + 1), _dir, null, Serve())).Path);
+        Assert.Empty(Directory.GetFiles(_dir));
+    }
+
+    [Fact]
+    public async Task Erro_de_HTTP_ou_de_rede_vira_mensagem_sem_excecao()
+    {
+        var r = await UpdateInstaller.DownloadAsync(Info(), _dir, null, Serve(status: System.Net.HttpStatusCode.NotFound));
+        Assert.Contains("404", r.Error);
+        var r2 = await UpdateInstaller.DownloadAsync(Info(), _dir, null, new Fake(() => throw new HttpRequestException("sem rede")));
+        Assert.Contains("sem rede", r2.Error);
+        Assert.Empty(Directory.GetFiles(_dir));
+    }
+
+    [Fact]
+    public void Instalador_roda_silencioso_sem_UAC_e_fechando_o_app()
+    {
+        System.Diagnostics.ProcessStartInfo? visto = null;
+        Assert.True(UpdateInstaller.Start(@"C:\Temp\x.exe", psi => { visto = psi; return System.Diagnostics.Process.GetCurrentProcess(); }));
+        Assert.Equal(["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"], visto!.ArgumentList);
+        Assert.NotEqual("runas", visto.Verb);
+        Assert.False(UpdateInstaller.Start(@"C:\Temp\x.exe", _ => throw new System.ComponentModel.Win32Exception(2)));
+    }
+
+    [Fact]
+    public void Release_com_nome_de_instalador_com_caminho_e_ignorada()
+    {
+        string json = """[{ "tag_name": "v0.3.0", "assets": [{ "name": "ThermoBook-Setup-..\\x.exe", "browser_download_url": "https://github.com/playertwo1/thermobook/releases/download/v0.3.0/a.exe", "size": 1 }] }]""";
+        Assert.Null(UpdateService.Pick(json, AppVersion.Parse("0.2.0")!, true));
+    }
+
+    [Fact]
+    public void Configuracoes_de_atualizacao_vem_ligadas_para_avisar_e_beta_desligado()
+    {
+        var s = new Settings();
+        Assert.True(s.CheckUpdates);
+        Assert.False(s.UpdateBeta);
+        Assert.Null(s.LastUpdateCheck);
+        var path = Path.Combine(Path.GetTempPath(), "thermobook-tests", Guid.NewGuid() + ".json");
+        var store = new SettingsStore(path);
+        var quando = new DateTime(2026, 11, 18, 9, 30, 0);
+        store.Save(new Settings(CheckUpdates: false, UpdateBeta: true, LastUpdateCheck: quando, NotifiedVersion: "v0.3.0"));
+        var lido = store.Load();
+        Assert.Equal((false, true, quando, "v0.3.0"), (lido.CheckUpdates, lido.UpdateBeta, lido.LastUpdateCheck, lido.NotifiedVersion));
+    }
+
+    [Fact]
+    public void Aba_Configuracoes_mostra_a_versao_e_cada_caixa_muda_so_o_seu_campo()
+    {
+        List<Settings> salvas = [];
+        var atual = new Settings();
+        SettingsPage? pagina = null;
+        int cliques = 0;
+        pagina = new SettingsPage(edit => { atual = edit(atual); salvas.Add(atual); pagina!.Show(atual, false); return null; }, _ => { }, () => cliques++);
+        pagina.Show(atual, false); // como o TrayApp: mostra o que está salvo antes de o usuário mexer
+        Assert.True(pagina.CheckUpdates.Checked);
+        Assert.False(pagina.UpdateNow.Visible);
+        pagina.ShowUpdate(new(AppVersion.Parse("0.3.0")!, "v0.3.0", Url, "ThermoBook-Setup-0.3.0.exe", 1, Sha, "x"));
+        Assert.Equal("Versão 0.3.0 disponível.", pagina.UpdateStatus.Text);
+        Assert.True(pagina.UpdateNow.Visible);
+        pagina.UpdateNow.PerformClick();
+        pagina.CheckUpdates.Checked = false;
+        pagina.UpdateBeta.Checked = true;
+        Assert.Equal(new Settings(CheckUpdates: false, UpdateBeta: true), salvas[^1]);
+    }
+}
+
 public class HistoryWriterTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "thermobook-tests", "hist-" + Guid.NewGuid().ToString("N"));

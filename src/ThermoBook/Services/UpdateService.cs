@@ -113,7 +113,7 @@ internal static class UpdateService
         {
             string name = Str(a, "name"), url = Str(a, "browser_download_url");
             // Só instalador com o nome esperado e baixado do próprio repositório, por HTTPS.
-            if (!Installer.IsMatch(name) || !url.StartsWith(DownloadPrefix, StringComparison.Ordinal)) continue;
+            if (!Installer.IsMatch(name) || name.IndexOfAny(['\\', '/', ':']) >= 0 || !url.StartsWith(DownloadPrefix, StringComparison.Ordinal)) continue; // nome vira arquivo: sem caminho
             long size = a.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number && s.TryGetInt64(out long n) ? n : 0;
             var m = Digest.Match(Str(a, "digest"));
             return (name, url, size, m.Success ? m.Groups[1].Value.ToLowerInvariant() : null);

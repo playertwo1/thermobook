@@ -38,6 +38,10 @@ internal sealed class TrayApp : ApplicationContext
     private bool _alertBalloonShown; // o clique no balão só troca de perfil se o balão for o do alerta
     private readonly AutoMode _auto = new();
     private readonly System.Threading.Timer _processTimer;
+    private UpdateInfo? _update;
+    private ToolStripMenuItem _updateItem = null!;
+    private System.Threading.Timer _updateTimer = null!;
+    private bool _updateBalloonShown, _installing;
     private readonly HistoryWriter _history = new(HistoryWriter.DefaultDir);
     private readonly System.Threading.Timer _historyTimer;
     private volatile string _modeName = "";
@@ -55,7 +59,7 @@ internal sealed class TrayApp : ApplicationContext
             : null;
         var tools = new ToolsPage(new(_settings.TweakBackup ?? []), b => SaveSettings(_settings with { TweakBackup = b }),
             getSchedule: () => _settings.CleanupAuto, setSchedule: s => SaveSettings(_settings with { CleanupAuto = s }));
-        _settingsPage = new SettingsPage(ChangeSettings, SetStartup);
+        _settingsPage = new SettingsPage(ChangeSettings, SetStartup, () => _ = InstallUpdateAsync());
         _panel = new MainForm(m => ApplyMode(m), (turbo, limit) => ApplyPower(turbo, limit), openFan, tools, _settingsPage);
         _ = _panel.Handle; // cria a janela (escondida) para o BeginInvoke do sinal de outra instância
         _openPanelWait = ThreadPool.RegisterWaitForSingleObject(openPanelSignal,
@@ -96,6 +100,8 @@ internal sealed class TrayApp : ApplicationContext
         _autoModeItem = new ToolStripMenuItem("Modo automático") { CheckOnClick = true, ToolTipText = "Troca o modo pela tomada/bateria e por programas abertos (regras em Configurações)." };
         _autoModeItem.Click += (_, _) => ChangeSettings(s => s with { Auto = (s.Auto ?? AutoRules.Default) with { Enabled = _autoModeItem.Checked } });
         _menu.Items.Add(_autoModeItem);
+        _updateItem = new ToolStripMenuItem("Atualizar", null, (_, _) => _ = InstallUpdateAsync()) { Visible = false, Font = new Font(_menu.Font, FontStyle.Bold) };
+        _menu.Items.Add(_updateItem);
         if (openFan is not null)
             _menu.Items.Add("Ventoinha (Configurações Samsung)...", null, (_, _) => openFan());
 
@@ -120,6 +126,7 @@ internal sealed class TrayApp : ApplicationContext
         _tray.BalloonTipClicked += (_, _) =>
         {
             if (_alertBalloonShown) ApplyMode(Cold);
+            else if (_updateBalloonShown) _ = InstallUpdateAsync();
         };
 
         _modeState.Changed += OnModeStateChanged; // antes da primeira leitura: todas as janelas recebem o estado inicial
@@ -133,6 +140,8 @@ internal sealed class TrayApp : ApplicationContext
         UpdatePillVisibility();
         _processTimer = new System.Threading.Timer(_ => PollProcesses(), null, 0, 5000);
         _historyTimer = new System.Threading.Timer(_ => RecordHistory(), null, 1000, 1000);
+        // Primeira procura 30 s depois de abrir (não disputa a partida); depois confere de hora em hora se já passou um dia.
+        _updateTimer = new System.Threading.Timer(_ => _ = CheckForUpdateAsync(), null, 30_000, 3_600_000);
         _timer.Tick += (_, _) => OnTick();
         _timer.Start();
         if (showPanel) ShowPanel();
@@ -252,6 +261,7 @@ internal sealed class TrayApp : ApplicationContext
         _startupItem.Checked = startup;
         _autoCoolItem.Checked = _settings.AutoCool;
         _autoModeItem.Checked = _settings.Auto is { Enabled: true };
+        if (_updateItem is not null) ShowUpdate(); // ligar/desligar a procura esconde ou mostra o aviso na hora
         _autoCoolItem.Text = $"Trocar para Frio acima de {_settings.AlertCelsius:0} °C";
         _autoCoolItem.ToolTipText = $"Quando passar de {_settings.AlertCelsius:0} °C por {_settings.AlertSeconds} s, desliga o turbo sozinho.";
         _settingsPage.Show(_settings, startup);
@@ -295,6 +305,62 @@ internal sealed class TrayApp : ApplicationContext
         _panel.ShowPower(s.Turbo, s.Limit, s.Mode, syncControls: false);
         _pill.SetMode(s.Mode, s.Background, s.Auto);
         _quick.SetState(s.Mode, s.Background, s.Auto);
+    }
+
+    /// <summary>Thread do timer: procura versão nova se ligado e se já passou um dia; o resultado volta para a interface.</summary>
+    private async Task CheckForUpdateAsync()
+    {
+        try
+        {
+            var s = _settings;
+            if (!s.CheckUpdates || _installing || !UpdateService.Due(s.LastUpdateCheck, DateTime.Now)) return;
+            var info = await UpdateService.CheckAsync(Application.ProductVersion, s.UpdateBeta);
+            _panel.BeginInvoke(() => OnUpdateChecked(info));
+        }
+        catch (Exception ex) { Debug.WriteLine(ex); } // nunca derruba o app (BeginInvoke falha se saiu no meio)
+    }
+
+    private void OnUpdateChecked(UpdateInfo? info)
+    {
+        _update = info;
+        var next = _settings with { LastUpdateCheck = DateTime.Now };
+        bool notify = info is not null && info.Tag != next.NotifiedVersion;
+        if (notify) next = next with { NotifiedVersion = info!.Tag };
+        SaveSettings(next);
+        ShowUpdate();
+        if (!notify) return;
+        _alertBalloonShown = false;
+        _updateBalloonShown = true;
+        _tray.ShowBalloonTip(10_000, "ThermoBook: atualização disponível", $"A versão {info!.Version} saiu. Clique aqui para atualizar.", ToolTipIcon.Info);
+    }
+
+    /// <summary>Menu e aba Configurações mostram a versão nova (ou nada, se a procura está desligada).</summary>
+    private void ShowUpdate()
+    {
+        var info = _settings.CheckUpdates ? _update : null;
+        _updateItem.Visible = info is not null;
+        if (info is not null) _updateItem.Text = $"Atualizar para a versão {info.Version}...";
+        _settingsPage.ShowUpdate(info);
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_update is not { } info || _installing) return;
+        if (MessageBox.Show($"Instalar o ThermoBook {info.Version} agora?\n\nO app baixa o instalador, confere o SHA-256 e fecha para atualizar; depois volta sozinho. Suas configurações ficam.",
+                "ThermoBook", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+        _installing = true;
+        _updateItem.Enabled = false;
+        _tray.ShowBalloonTip(5000, "ThermoBook", "Baixando a atualização...", ToolTipIcon.Info);
+        _updateBalloonShown = false;
+        var result = await UpdateInstaller.DownloadAsync(info, UpdateInstaller.DefaultDir);
+        if (result.Path is { } path && UpdateInstaller.Start(path))
+        {
+            ExitThread(); // o instalador abre o app de novo no fim
+            return;
+        }
+        ShowError(result.Error ?? "Não consegui iniciar o instalador.");
+        _installing = false;
+        _updateItem.Enabled = true;
     }
 
     /// <summary>Thread do timer (nunca a da interface): soma a última leitura ao minuto e grava quando ele fecha.</summary>
@@ -409,6 +475,7 @@ internal sealed class TrayApp : ApplicationContext
     private void ShowError(string message)
     {
         _alertBalloonShown = false;
+        _updateBalloonShown = false;
         _tray.ShowBalloonTip(5000, "ThermoBook", message, ToolTipIcon.Error);
     }
 
@@ -417,6 +484,7 @@ internal sealed class TrayApp : ApplicationContext
         _timer.Stop();
         _processTimer.Dispose();
         _historyTimer.Dispose();
+        _updateTimer.Dispose();
         _history.Flush(); // o minuto em andamento não se perde ao sair
         _planWatcher.Dispose();
         _hotkeyWindow.Dispose();

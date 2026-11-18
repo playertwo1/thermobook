@@ -12,7 +12,9 @@ internal sealed class SettingsPage : UserControl
     private Settings _shown = new();
     private bool _syncing;
 
-    internal readonly CheckBox Pill, Startup, AutoCool, AutoOn, History;
+    internal readonly CheckBox Pill, Startup, AutoCool, AutoOn, History, CheckUpdates, UpdateBeta;
+    internal readonly Label UpdateStatus;
+    internal readonly Button UpdateNow;
     internal readonly ComboBox OnBattery, OnAc, ProgramName, ProgramMode;
     internal readonly ListBox Programs;
     internal readonly Button ProgramAdd, ProgramRemove;
@@ -23,7 +25,7 @@ internal sealed class SettingsPage : UserControl
 
     /// <param name="change">Aplica uma mudança nas configurações; devolve a mensagem de erro, ou null.</param>
     /// <param name="setStartup">Liga/desliga a Run key (não fica no settings.json).</param>
-    public SettingsPage(Func<Func<Settings, Settings>, string?> change, Action<bool> setStartup)
+    public SettingsPage(Func<Func<Settings, Settings>, string?> change, Action<bool> setStartup, Action? installUpdate = null)
     {
         _change = change;
         SuspendLayout();
@@ -87,6 +89,20 @@ internal sealed class SettingsPage : UserControl
         list.Controls.Add(History);
         list.Controls.Add(Theme.Note("Arquivos CSV em %AppData%\\ThermoBook\\historico, um por dia. Abrem direto no Excel."));
 
+        list.Controls.Add(Theme.Header("Atualizações"));
+        CheckUpdates = Check("Procurar versão nova ao abrir e uma vez por dia");
+        CheckUpdates.CheckedChanged += (_, _) => Change(s => s with { CheckUpdates = CheckUpdates.Checked });
+        UpdateBeta = Check("Receber também versões beta (pré-lançamento)");
+        UpdateBeta.CheckedChanged += (_, _) => Change(s => s with { UpdateBeta = UpdateBeta.Checked });
+        list.Controls.AddRange([CheckUpdates, UpdateBeta]);
+        UpdateStatus = new Label { AutoSize = true, MaximumSize = new Size(640, 0), ForeColor = Theme.Muted, Margin = new Padding(12, 4, 3, 2) };
+        UpdateNow = Theme.Button("Atualizar agora");
+        UpdateNow.Margin = new Padding(12, 3, 3, 3);
+        UpdateNow.Click += (_, _) => installUpdate?.Invoke();
+        list.Controls.AddRange([UpdateStatus, UpdateNow]);
+        list.Controls.Add(Theme.Note("Só consulta a página de Releases do GitHub, sem enviar dado seu. Nada é baixado sem o seu clique; o instalador é conferido pelo SHA-256 da Release."));
+        ShowUpdate(null);
+
         list.Controls.Add(Theme.Header("Inicialização"));
         Startup = Check("Iniciar com o Windows");
         Startup.CheckedChanged += (_, _) => { if (!_syncing) setStartup(Startup.Checked); };
@@ -106,6 +122,8 @@ internal sealed class SettingsPage : UserControl
             Pill.Checked = s.ShowPill;
             AutoCool.Checked = s.AutoCool;
             History.Checked = s.History;
+            CheckUpdates.Checked = s.CheckUpdates;
+            UpdateBeta.Checked = s.UpdateBeta;
             Startup.Checked = startup;
             var rules = s.Auto ?? AutoRules.Default;
             AutoOn.Checked = rules.Enabled;
@@ -118,6 +136,13 @@ internal sealed class SettingsPage : UserControl
             if (!Hotkey.Focused) Hotkey.Text = s.Hotkey;
         }
         finally { _syncing = false; }
+    }
+
+    /// <summary>Mostra a versão disponível (e o botão) ou, sem ela, que está em dia.</summary>
+    public void ShowUpdate(UpdateInfo? info)
+    {
+        UpdateStatus.Text = info is null ? "Nenhuma versão nova encontrada." : $"Versão {info.Version} disponível.";
+        UpdateNow.Visible = info is not null;
     }
 
     private void Change(Func<Settings, Settings> edit)

@@ -39,6 +39,8 @@ Name: "{autoprograms}\ThermoBook"; Filename: "{app}\ThermoBook.exe"
 
 [Run]
 Filename: "{app}\ThermoBook.exe"; Description: "Abrir o ThermoBook"; Flags: nowait postinstall skipifsilent
+; Atualização automática (fase 17): o instalador roda em modo silencioso e o app, que saiu para ser atualizado, volta só na bandeja.
+Filename: "{app}\ThermoBook.exe"; Parameters: "--bandeja"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 ; Na ordem: fecha o app (o atalho global morre com ele, o RegisterHotKey não fica salvo); --restaurar desliga o segundo plano
