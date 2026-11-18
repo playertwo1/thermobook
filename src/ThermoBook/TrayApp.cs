@@ -21,6 +21,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly Dictionary<PowerMode, ToolStripMenuItem> _profileItems = [];
     private readonly ToolStripMenuItem _background;
     private readonly PillForm _pill = new();
+    private readonly PillFlyout _flyout;
     private bool _fullscreenApp;
     private readonly PlanWatcher _planWatcher;
     private readonly HotkeyWindow _hotkeyWindow;
@@ -60,6 +61,7 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Desligar a tela", null, (_, _) => DisplayService.TurnOff())
             { ToolTipText = "Desliga o monitor sem suspender o PC. Mexer o mouse religa." });
+        _flyout = new PillFlyout(_pill);
         _pill.Restore(_settings.PillMonitor, _settings.PillPositions);
         _pill.PlacementChanged += (key, pos) =>
             SaveSettings(_settings with { PillMonitor = key, PillPositions = new(_settings.PillPositions ?? []) { [key] = pos } });
@@ -251,6 +253,7 @@ internal sealed class TrayApp : ApplicationContext
         if (s is null) return;
         _panel.Push(s);
         _pill.Push(s);
+        _flyout.Update(s);
         if (_alert.Check(s.TempMax, DateTime.Now)) OnOverheat(s.TempMax);
     }
 
@@ -305,6 +308,7 @@ internal sealed class TrayApp : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _panel.Dispose();
+        _flyout.Dispose();
         _pill.Dispose();
         _sensors.Dispose();
         _icon.Dispose();

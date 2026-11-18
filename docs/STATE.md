@@ -4,8 +4,8 @@
 
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app)
-**Próxima subfase:** [10.1 Flyout ao passar o mouse](ROADMAP.md#101-flyout-ao-passar-o-mouse)
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1 feita, falta verificar rodando o app)
+**Próxima subfase:** [10.2 Painel rápido ao clicar](ROADMAP.md#102-painel-rápido-ao-clicar)
 
 ## Progresso da v0.2
 
@@ -14,7 +14,7 @@
 | 7 Motor de energia e modos | 🟨 em andamento (7.1–7.4 feitas, falta conferir no notebook) |
 | 8 Segundo plano e desligar tela | 🟨 em andamento (8.1–8.3 feitas, falta verificar no notebook) |
 | 9 Pílula flutuante | 🟨 em andamento (9.1–9.4 feitas, falta verificar rodando o app) |
-| 10 Painel rápido e flyout | ⬜ não iniciada |
+| 10 Painel rápido e flyout | 🟨 em andamento (10.1 feita, falta verificar rodando o app) |
 | 11 Ferramentas com administrador | ⬜ não iniciada |
 | 12 Painel em abas, instalador, release | ⬜ não iniciada |
 
@@ -51,6 +51,7 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 
 ## Notas da última sessão
 
+- 10.1: `FloatingForm` extraído do `PillForm`; flyout com texto, posição e controlador de tempos. Não passei o mouse de verdade.
 - 9.4: `FullscreenGuard`, `ShowPill` e menu de contexto na pílula. Não medi CPU nem testei tela cheia de verdade.
 - 9.3: `PillDock` (encaixe/restauração testados) + arrastar, posição por monitor, DPI e mudança de monitores no `PillForm`. Não arrastei a pílula de verdade.
 - 9.2: `PillLayout` + desenho completo da pílula (vertical/horizontal), `SetMode` ligado ao `TrayApp`. Cores do ponto do modo escolhidas por mim (DESIGN.md não define): Economia verde, Frio azul, Eficiência ciano, Equilibrado branco, Alto/Máximo roxo, Personalizado cinza.

@@ -164,11 +164,13 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 **Objetivo:** trocar modo, ligar segundo plano e desligar a tela sem sair da pílula.
 
 ### 10.1 Flyout ao passar o mouse
-- [ ] Aparece após 300 ms ao lado da pílula, do lado oposto à borda; some 150 ms após o mouse sair.
-- [ ] Conteúdo: temperatura por zona + "quente/quente demais", GHz e turbo, GPU 3D/vídeo, RAM em GB, disco, modo, segundo plano.
-- [ ] Também não rouba foco.
+- [x] Aparece após 300 ms ao lado da pílula, do lado oposto à borda; some 150 ms após o mouse sair.
+- [x] Conteúdo: temperatura por zona + "quente/quente demais", GHz e turbo, GPU 3D/vídeo, RAM em GB, disco, modo, segundo plano.
+- [x] Também não rouba foco.
 
 **Pronto quando:** passar o mouse mostra o flyout sem piscar a pílula; o flyout nunca sai da área de trabalho (testar com a pílula em cada canto).
+
+> Feito no PR da 10.1: `FloatingForm` (base comum de pílula e flyout: sem foco, fora do Alt+Tab, cantos), `FlyoutText` (zonas de temperatura com normal/quente/quente demais, GHz e turbo, GPU 3D/vídeo, RAM em GB, disco, modo, segundo plano), `FlyoutPlacement` (lado oposto à borda, sempre dentro da área de trabalho; testado nos 4 cantos nas duas orientações), `PillFlyout` (abre 300 ms depois de o mouse entrar, fecha 150 ms depois de sair; arrastar ou clicar fecha). Renderizei o flyout em imagem e conferi. **Falta verificar rodando o app:** passar o mouse mostra o flyout sem piscar a pílula; o tempo de 300/150 ms na prática.
 
 ### 10.2 Painel rápido ao clicar
 - [ ] Cartão de 280 px ancorado à pílula: 6 modos segmentados, botões *Segundo plano*, *Desligar tela*, *Ferramentas…*, rodapé com "Abrir painel completo".

@@ -433,7 +433,7 @@ public class PillTests
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
-    private static extern int GetWindowLongW(IntPtr hwnd, int index);
+    internal static extern int GetWindowLongW(IntPtr hwnd, int index);
 }
 
 public class TrayIconRendererTests
@@ -937,5 +937,144 @@ public class FullscreenGuardTests
         Assert.True(new Settings().ShowPill);
         Assert.True(System.Text.Json.JsonSerializer.Deserialize<Settings>("""{ "Profile": "Frio" }""")!.ShowPill);
         Assert.False(System.Text.Json.JsonSerializer.Deserialize<Settings>("""{ "ShowPill": false }""")!.ShowPill);
+    }
+}
+
+public class FlyoutTests
+{
+    private static readonly Rectangle Area = new(0, 0, 1920, 1040);
+    private static readonly Size FlyoutSize = new(300, 220);
+    private static readonly Size PillV = new(36, 132), PillH = new(152, 36);
+
+    private static Size PillSize(Orientation o) => o == Orientation.Vertical ? PillV : PillH;
+
+    private static Snapshot Snap(double[] temps) => new(12, 2.1, 90, 2, 5, 1, 0, 2e9, 8e9, 3, 1e6, 2e6, 500e9, temps);
+
+    [Theory]
+    [InlineData(54.0, "normal")]
+    [InlineData(74.9, "normal")]
+    [InlineData(75.0, "quente")]
+    [InlineData(89.9, "quente")]
+    [InlineData(90.0, "quente demais")]
+    [InlineData(100.0, "quente demais")]
+    public void Heat_classifica_pela_faixa(double celsius, string expected) =>
+        Assert.Equal(expected, FlyoutText.Heat(celsius));
+
+    [Fact]
+    public void Duas_zonas_de_temperatura_com_nivel_e_valor()
+    {
+        var temps = FlyoutText.Lines(Snap([54.0, 78.0]), null, false).Where(l => l.Text.StartsWith("Temperatura")).ToList();
+        Assert.Equal(2, temps.Count);
+        Assert.Contains("zona 1", temps[0].Text);
+        Assert.Contains("zona 2", temps[1].Text);
+        Assert.Contains("54 °C, normal", temps[0].Text);
+        Assert.Contains("78 °C, quente", temps[1].Text);
+        Assert.Equal(54.0, temps[0].Temp);
+        Assert.Equal(78.0, temps[1].Temp);
+    }
+
+    [Fact]
+    public void Uma_zona_nao_mostra_numero_de_zona()
+    {
+        var lines = FlyoutText.Lines(Snap([54.0]), null, false);
+        Assert.Contains(lines, l => l.Text == "Temperatura: 54 °C, normal" && l.Temp == 54.0);
+        Assert.DoesNotContain(lines, l => l.Text.Contains("zona"));
+    }
+
+    [Fact]
+    public void Sem_sensor_de_temperatura_fica_indisponivel()
+    {
+        var lines = FlyoutText.Lines(Snap([]), null, false);
+        Assert.Null(lines.Single(l => l.Text == "Temperatura: indisponível").Temp);
+    }
+
+    [Fact]
+    public void Sem_RAM_total_fica_indisponivel()
+    {
+        var lines = FlyoutText.Lines(Snap([54.0]) with { RamTotal = 0 }, null, false);
+        Assert.Contains(lines, l => l.Text == "RAM: indisponível");
+    }
+
+    [Fact]
+    public void Modo_e_segundo_plano()
+    {
+        var s = Snap([54.0]);
+        var semModo = FlyoutText.Lines(s, null, false);
+        Assert.Contains(semModo, l => l.Text == "Modo: Personalizado");
+        Assert.Contains(semModo, l => l.Text == "Segundo plano: desligado");
+
+        var comModo = FlyoutText.Lines(s, PowerService.ModeByName("Frio"), true);
+        Assert.Contains(comModo, l => l.Text == "Modo: Frio");
+        Assert.Contains(comModo, l => l.Text == "Segundo plano: ligado");
+    }
+
+    [Fact]
+    public void Turbo_aparece_so_acima_de_101()
+    {
+        var s = Snap([54.0]);
+        Assert.Contains(FlyoutText.Lines(s with { CpuPerf = 102 }, null, false), l => l.Text.StartsWith("CPU:") && l.Text.Contains("em turbo"));
+        Assert.DoesNotContain(FlyoutText.Lines(s with { CpuPerf = 101 }, null, false), l => l.Text.Contains("em turbo"));
+    }
+
+    [Fact]
+    public void Valor_NaN_vira_travessao_e_nao_aparece_NaN()
+    {
+        var s = Snap([54.0]) with { Gpu3D = double.NaN, CpuUse = double.NaN, DiskActive = double.NaN, GpuVideo = double.NaN };
+        var lines = FlyoutText.Lines(s, null, false);
+        Assert.Contains("GPU: 3D – · vídeo –", lines.Single(l => l.Text.StartsWith("GPU")).Text);
+        Assert.DoesNotContain("NaN", string.Join("\n", lines.Select(l => l.Text)));
+    }
+
+    [Theory]
+    [InlineData(0, 400, Orientation.Vertical, 44, 356)]        // encostada à esquerda: abre à direita
+    [InlineData(1884, 400, Orientation.Vertical, 1576, 356)]   // encostada à direita: abre à esquerda
+    [InlineData(900, 0, Orientation.Horizontal, 826, 44)]      // encostada no topo: abre embaixo
+    [InlineData(900, 1004, Orientation.Horizontal, 826, 776)]  // encostada na base: abre em cima
+    public void Place_abre_do_lado_oposto_a_borda(int x, int y, Orientation o, int ex, int ey)
+    {
+        var p = FlyoutPlacement.Place(new Rectangle(new Point(x, y), PillSize(o)), o, FlyoutSize, Area, 8);
+        Assert.Equal(new Point(ex, ey), p);
+    }
+
+    [Theory]
+    [InlineData(0, 0, Orientation.Vertical)]
+    [InlineData(1884, 0, Orientation.Vertical)]
+    [InlineData(0, 908, Orientation.Vertical)]
+    [InlineData(1884, 908, Orientation.Vertical)]
+    [InlineData(0, 0, Orientation.Horizontal)]
+    [InlineData(1768, 0, Orientation.Horizontal)]
+    [InlineData(0, 1004, Orientation.Horizontal)]
+    [InlineData(1768, 1004, Orientation.Horizontal)]
+    public void Nos_quatro_cantos_o_flyout_fica_dentro_da_area_e_fora_da_pilula(int x, int y, Orientation o)
+    {
+        var pill = new Rectangle(new Point(x, y), PillSize(o));
+        var flyout = new Rectangle(FlyoutPlacement.Place(pill, o, FlyoutSize, Area, 8), FlyoutSize);
+        Assert.True(Area.Contains(flyout), $"flyout {flyout} fora da área");
+        Assert.False(flyout.IntersectsWith(pill), $"flyout {flyout} sobrepõe a pílula {pill}");
+    }
+
+    [Fact]
+    public void Flyout_maior_que_a_area_fica_no_canto_sem_lancar()
+    {
+        var p = FlyoutPlacement.Place(new Rectangle(0, 400, 36, 132), Orientation.Vertical, new Size(3000, 2000), Area, 8);
+        Assert.Equal(new Point(Area.Left, Area.Top), p);
+    }
+
+    [Fact]
+    public void Janela_nao_rouba_foco_nem_aparece_na_barra_e_cresce_com_as_linhas()
+    {
+        using var form = new FlyoutForm();
+        _ = form.Handle;
+        int ex = PillTests.GetWindowLongW(form.Handle, -20 /* GWL_EXSTYLE */);
+        Assert.NotEqual(0, ex & 0x80 /* WS_EX_TOOLWINDOW */);
+        Assert.NotEqual(0, ex & 0x08000000 /* WS_EX_NOACTIVATE */);
+        Assert.False(form.ShowInTaskbar);
+
+        form.SetLines(FlyoutText.Lines(Snap([54.0]), null, false), 1f);
+        Assert.True(form.Size.Width > 0 && form.Size.Height > 0);
+        int altura = form.Height;
+
+        form.SetLines(FlyoutText.Lines(Snap([54.0, 78.0]), null, false), 1f);
+        Assert.True(form.Height > altura);
     }
 }
