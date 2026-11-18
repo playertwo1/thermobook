@@ -106,7 +106,7 @@ As imagens são o desenho real das janelas do app, geradas com dados de exemplo.
 | Alto | Mais desempenho | agressivo | 100% |
 | Máximo | Tudo no máximo | agressivo | 100% |
 
-Valores completos (CPU mínima, EPP, núcleos, disco) no [ROADMAP 7.2](docs/ROADMAP.md#72-catálogo-de-modos). Se o modo for trocado por fora (Configurações do Windows), o app mostra **Personalizado**; se o plano de energia mudar, ele reaplica o modo salvo.
+Valores completos (CPU mínima, EPP, núcleos, disco) no [ROADMAP 7.2](docs/archive/ROADMAP-v0.2.md#72-catálogo-de-modos). Se o modo for trocado por fora (Configurações do Windows), o app mostra **Personalizado**; se o plano de energia mudar, ele reaplica o modo salvo.
 
 ### Linha de comando
 
@@ -142,7 +142,7 @@ flowchart LR
 - **Administrador só num processo separado**: o app relança a si mesmo com `--tarefa <nome>`; o processo elevado aceita só nomes de uma lista fechada, faz a tarefa, grava um relatório e sai.
 - **Tudo reversível**: o valor anterior é guardado antes de gravar (`%AppData%\ThermoBook\settings.json` para o que é da conta; `HKLM\SOFTWARE\ThermoBook` para o que é de máquina). O que não tem volta (esvaziar a Lixeira, remover apps) fica desmarcado e pede confirmação.
 
-Decisões e o porquê de cada uma em [docs/STATE.md](docs/STATE.md#decisões-tomadas-v02); visual em [DESIGN.md](DESIGN.md).
+Decisões e o porquê de cada uma em [docs/STATE.md](docs/STATE.md#decisões-tomadas); visual em [DESIGN.md](DESIGN.md).
 
 ## Limites conhecidos
 

@@ -45,7 +45,7 @@ A pílula de ícones do OpenUsage para Windows (`~/projetos/openusage`): uma cá
 
 ## Fora do escopo da v0.2
 
-Controle de ventoinha (o firmware Samsung não expõe), modo automático por programa ou bateria, histórico em CSV, inglês, tema claro, atualização automática, agendamento da limpeza. Ficam no backlog do [ROADMAP](docs/ROADMAP.md).
+Controle de ventoinha (o firmware Samsung não expõe), inglês e tema claro. Modo automático por programa ou bateria, limpeza agendada, temperatura da GPU NVIDIA, histórico em CSV e atualização automática estão planejados para a próxima versão no [ROADMAP](docs/ROADMAP.md).
 
 ## Limites conhecidos
 

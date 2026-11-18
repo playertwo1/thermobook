@@ -1,6 +1,6 @@
 # Verificação da v0.2 no notebook
 
-Tudo o que o ROADMAP marca como "falta verificar" nas fases 7–12, na ordem de fazer. Use a **v0.2.0-beta.1** instalada pela [Release](https://github.com/playertwo1/thermobook/releases/tag/v0.2.0-beta.1).
+Tudo o que o [ROADMAP da v0.2](archive/ROADMAP-v0.2.md) marca como "falta verificar" nas fases 7–12, na ordem de fazer. Use a **v0.2.0-beta.1** instalada pela [Release](https://github.com/playertwo1/thermobook/releases/tag/v0.2.0-beta.1).
 
 Marque `[x]` ao passar. Se falhar, anote ao lado o que aconteceu (e o número da subfase) para virar correção. Quando tudo passar, a `v0.2.0` pode sair (12.4).
 
@@ -44,7 +44,7 @@ powercfg /qh > antes.txt                                                # foto d
 
 Plano **Equilibrado** ativo (o overlay só pega nele).
 
-- [ ] **Cada modo (7.2/7.4):** para cada um dos 6 modos, aplicar e rodar `--diagnostico`. Esperado: coluna atual = esperado; `powercfg /qh` mostra os mesmos valores (tabela no ROADMAP 7.2).
+- [ ] **Cada modo (7.2/7.4):** para cada um dos 6 modos, aplicar e rodar `--diagnostico`. Esperado: coluna atual = esperado; `powercfg /qh` mostra os mesmos valores (tabela no [ROADMAP da v0.2, 7.2](archive/ROADMAP-v0.2.md#72-catálogo-de-modos)).
 - [ ] **Overlay (7.1):** depois de Economia/Eficiência, o controle "Modo de energia" em Configurações > Energia mostra "Melhor eficiência"; Alto → "Melhor desempenho".
 - [ ] **Personalizado (7.3):** trocar o modo de energia pelas Configurações do Windows. Esperado: o ThermoBook mostra "Personalizado" (ponto cinza).
 - [ ] **Troca de plano (7.3):** trocar de plano de energia (Painel de Controle > Opções de Energia). Esperado: o modo salvo é reaplicado no plano novo.

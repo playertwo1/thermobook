@@ -62,6 +62,6 @@ Qualquer agente pode fazer qualquer subfase; isto é só onde cada um costuma re
 
 ## Referências
 
-- Scripts originais que o app substitui: `C:\Users\notefael\Desktop\Bats\` (máquina do dono; não estão no repositório). A tabela de valores dos modos já está copiada no ROADMAP 7.2.
+- Scripts originais que o app substitui: `C:\Users\notefael\Desktop\Bats\` (máquina do dono; não estão no repositório). A tabela de valores dos modos está no ROADMAP arquivado da v0.2 ([docs/archive/ROADMAP-v0.2.md](docs/archive/ROADMAP-v0.2.md), 7.2).
 - Pílula de referência: OpenUsage para Windows em `~/projetos/openusage` (`Windows/`, `docs/windows.md`, seção "Provider icon notch").
 - Plano e decisões da v0.1: [docs/PLANO.md](docs/PLANO.md).

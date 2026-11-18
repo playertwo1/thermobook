@@ -10,7 +10,8 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | [CLAUDE.md](../CLAUDE.md) / [GEMINI.md](../GEMINI.md) | Só apontam para o AGENTS.md. |
 | [PRODUCT.md](../PRODUCT.md) | O que o app é, para quem, o que entra e o que fica de fora. |
 | [DESIGN.md](../DESIGN.md) | Cores, tipografia, pílula, flyout, painel rápido, comportamento. |
-| [docs/ROADMAP.md](ROADMAP.md) | Fases e subfases com critério de pronto. |
+| [docs/ROADMAP.md](ROADMAP.md) | Fases 13–18 (próxima versão) e subfases com critério de pronto. |
+| [docs/archive/](archive/) | ROADMAP e STATE da v0.2 (fases 0–12), arquivados. Tabela de valores dos 6 modos no ROADMAP arquivado, 7.2. |
 | [docs/STATE.md](STATE.md) | Onde estamos, decisões tomadas e em aberto, riscos. |
 | [docs/PLANO.md](PLANO.md) | Plano e decisões da v0.1 (histórico). |
 | [README.md](../README.md) | Apresentação e como gerar o instalador. |
@@ -46,12 +47,12 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | `.github/workflows/release.yml` | Tag `v*` → instalador na GitHub Release. |
 | `prototype/Monitor_Temperatura.ps1` | Protótipo original em PowerShell (referência). |
 
-## Arquivos previstos na v0.2
+## Arquivos previstos na próxima versão
 
 | Caminho | Fase |
 |---|---|
-| `src/ThermoBook/Services/ModeCatalog.cs` | 7.2 |
-| `src/ThermoBook/Services/DisplayService.cs` | 8.1 |
-| `src/ThermoBook/Services/BackgroundMode.cs` | 8.3 |
-| `src/ThermoBook/Pill/PillForm.cs`, `PillLayout.cs`, `PillDocking.cs` | 9 |
-| `src/ThermoBook/Pill/PillFlyout.cs`, `QuickPanel.cs` | 10 |
+| `src/ThermoBook/Services/AutoMode.cs` | 13 |
+| `src/ThermoBook/Services/CleanupSchedule.cs` | 14 |
+| `src/ThermoBook/Services/NvidiaSensor.cs` | 15 |
+| `src/ThermoBook/Services/HistoryWriter.cs` | 16 |
+| `src/ThermoBook/Services/UpdateService.cs` | 17 |
