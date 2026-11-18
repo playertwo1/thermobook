@@ -11,10 +11,11 @@ namespace ThermoBook.Services;
 /// <param name="PillMonitor">Monitor (nome do dispositivo + resolução) onde a pílula ficou por último.</param>
 /// <param name="PillPositions">Posição da pílula por monitor.</param>
 /// <param name="ShowPill">Mostra a pílula flutuante (ligada por padrão).</param>
+/// <param name="TweakBackup">Valores anteriores dos ajustes de HKCU da otimização (null = não existia), para o Desfazer.</param>
 internal sealed record Settings(string? Profile = null, double AlertCelsius = 90, int AlertSeconds = 30, bool AutoCool = false, string Hotkey = HotkeyService.Default,
     Dictionary<string, Dictionary<string, PairValue>>? BackgroundPlans = null,
     string? PillMonitor = null, Dictionary<string, PillPosition>? PillPositions = null,
-    bool ShowPill = true);
+    bool ShowPill = true, Dictionary<string, int?>? TweakBackup = null);
 
 /// <summary>Guarda as configurações em %AppData%\ThermoBook\settings.json.</summary>
 internal sealed class SettingsStore(string path)

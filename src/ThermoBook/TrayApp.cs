@@ -35,6 +35,7 @@ internal sealed class TrayApp : ApplicationContext
     private int _ticks;
     private bool _alertBalloonShown; // o clique no balão só troca de perfil se o balão for o do alerta
     private bool _toolRunning;
+    private OptimizeForm? _optimize;
 
     public TrayApp(SettingsStore store, WaitHandle openPanelSignal, bool showPanel)
     {
@@ -72,6 +73,8 @@ internal sealed class TrayApp : ApplicationContext
                 "ThermoBook", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
             if (ok == DialogResult.OK) RunTool("limpeza-lixeira");
         }));
+        _menu.Items.Add(new ToolStripMenuItem("Otimizar o Windows...", null, (_, _) => ShowOptimize())
+            { ToolTipText = "Privacidade, desempenho, TRIM e apps pré-instalados. Os ajustes de registro têm Desfazer." });
         _flyout = new PillFlyout(_pill);
         _quick = new QuickPanel(m => ApplyMode(m), ToggleBackground, DisplayService.TurnOff, ShowPanel);
         _pill.Clicked += ToggleQuickPanel;
@@ -341,6 +344,14 @@ internal sealed class TrayApp : ApplicationContext
         finally { _toolRunning = false; }
     }
 
+    private void ShowOptimize()
+    {
+        if (_optimize is null || _optimize.IsDisposed)
+            _optimize = new OptimizeForm(new(_settings.TweakBackup ?? []), b => SaveSettings(_settings with { TweakBackup = b }));
+        _optimize.Show();
+        _optimize.Activate();
+    }
+
     private void ShowError(string message)
     {
         _alertBalloonShown = false;
@@ -356,6 +367,7 @@ internal sealed class TrayApp : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _panel.Dispose();
+        _optimize?.Dispose();
         _quick.Dispose();
         _flyout.Dispose();
         _pill.Dispose();

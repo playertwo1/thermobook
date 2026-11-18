@@ -23,7 +23,11 @@ internal static class ElevatedTask
     {
         ["limpeza"] = () => Cleanup.Run(emptyRecycleBin: false),
         ["limpeza-lixeira"] = () => Cleanup.Run(emptyRecycleBin: true), // a Lixeira não tem volta: só com confirmação na interface
-        ["otimizacao"] = () => new(TaskOutcome.Failed, "A otimização ainda não foi implementada."),
+        // Só o que é de máquina (11.3); os ajustes de HKCU rodam no app normal. O nome diz quais itens foram marcados.
+        ["otimizacao-entrega"] = () => Tweaks.RunMachine(delivery: true, trim: false),
+        ["otimizacao-trim"] = () => Tweaks.RunMachine(delivery: false, trim: true),
+        ["otimizacao-entrega-trim"] = () => Tweaks.RunMachine(delivery: true, trim: true),
+        ["otimizacao-desfazer"] = Tweaks.RunUndoMachine,
     };
 
     internal sealed record Args(string Task, string ReportPath);
