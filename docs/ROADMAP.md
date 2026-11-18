@@ -173,11 +173,13 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 10.1: `FloatingForm` (base comum de pílula e flyout: sem foco, fora do Alt+Tab, cantos), `FlyoutText` (zonas de temperatura com normal/quente/quente demais, GHz e turbo, GPU 3D/vídeo, RAM em GB, disco, modo, segundo plano), `FlyoutPlacement` (lado oposto à borda, sempre dentro da área de trabalho; testado nos 4 cantos nas duas orientações), `PillFlyout` (abre 300 ms depois de o mouse entrar, fecha 150 ms depois de sair; arrastar ou clicar fecha). Renderizei o flyout em imagem e conferi. **Falta verificar rodando o app:** passar o mouse mostra o flyout sem piscar a pílula; o tempo de 300/150 ms na prática.
 
 ### 10.2 Painel rápido ao clicar
-- [ ] Cartão de 280 px ancorado à pílula: 6 modos segmentados, botões *Segundo plano*, *Desligar tela*, *Ferramentas…*, rodapé com "Abrir painel completo".
-- [ ] Este cartão **pode** receber foco (precisa de teclado): Tab/setas/Enter/Esc. Fecha ao clicar fora (`Deactivate`).
-- [ ] Trocar modo aqui chama o mesmo caminho do menu da bandeja (um único `ApplyMode`).
+- [x] Cartão de 280 px ancorado à pílula: 6 modos segmentados, botões *Segundo plano*, *Desligar tela*, *Ferramentas…*, rodapé com "Abrir painel completo".
+- [x] Este cartão **pode** receber foco (precisa de teclado): Tab/setas/Enter/Esc. Fecha ao clicar fora (`Deactivate`).
+- [x] Trocar modo aqui chama o mesmo caminho do menu da bandeja (um único `ApplyMode`).
 
 **Pronto quando:** dá para trocar de modo e ligar o segundo plano só com o teclado; o resultado aparece na pílula na leitura seguinte.
+
+> Feito no PR da 10.2: `QuickPanel` (cartão de 280 px com 6 modos em grade 3x2, botões Segundo plano / Desligar tela / Ferramentas e rodapé "Abrir painel completo"), clique simples na pílula abre/fecha, ancorado pela mesma `FlyoutPlacement` do flyout, recebe foco (`CanActivate` em `FloatingForm`), Esc/clicar fora fecham (`Deactivate`), trocar modo usa o mesmo `ApplyMode` do menu da bandeja, e `PublishMode` atualiza pílula e painel. Conferi o visual em imagem. **Diferenças e pendências:** os botões de modo não têm ícone (só nome); "Ferramentas" abre por enquanto o painel completo atual (a aba Ferramentas é da fase 12); a engrenagem de configurações do rodapé não foi feita. **Falta verificar rodando o app:** trocar modo e ligar o segundo plano só com o teclado (Tab/setas/Enter/Esc); o painel realmente recebe foco ao clicar na pílula; o resultado aparece na pílula na leitura seguinte.
 
 ### 10.3 Unificar a interface
 - [ ] Bandeja, pílula, painel rápido e painel completo leem o mesmo estado (modo, segundo plano) de um único lugar no `TrayApp` e são avisados por um evento quando muda. Nada de cada janela consultar o `PowerService` por conta própria.

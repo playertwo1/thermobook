@@ -26,14 +26,17 @@ internal abstract partial class FloatingForm : Form
     /// <summary>Raio do plano B (Region). A pílula é uma cápsula completa.</summary>
     protected virtual int RegionRadius => Math.Min(Width, Height) / 2;
 
-    protected override bool ShowWithoutActivation => true;
+    /// <summary>false (padrão): nunca recebe foco. true: janela interativa por teclado, como o painel rápido.</summary>
+    protected virtual bool CanActivate => false;
+
+    protected override bool ShowWithoutActivation => !CanActivate;
 
     protected override CreateParams CreateParams
     {
         get
         {
             var cp = base.CreateParams;
-            cp.ExStyle |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+            cp.ExStyle |= WS_EX_TOOLWINDOW | (CanActivate ? 0 : WS_EX_NOACTIVATE);
             return cp;
         }
     }
@@ -66,7 +69,7 @@ internal abstract partial class FloatingForm : Form
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == WM_MOUSEACTIVATE) { m.Result = MA_NOACTIVATE; return; } // clicar não tira o foco do app da frente
+        if (!CanActivate && m.Msg == WM_MOUSEACTIVATE) { m.Result = MA_NOACTIVATE; return; } // clicar não tira o foco do app da frente
         base.WndProc(ref m);
     }
 
