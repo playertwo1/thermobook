@@ -753,3 +753,163 @@ public class BackgroundModeTests
         Assert.False(BackgroundMode.IsOn(antigo));
     }
 }
+
+public class PillDockTests
+{
+    private static readonly Rectangle Area = new(0, 0, 1920, 1040);
+    private static readonly Size VerticalSize = new(36, 132);
+    private static readonly Size HorizontalSize = new(152, 36);
+    private const int Limiar = 24;
+    private const string Primaria = "A|1920x1080";
+    private const string Externa = "B|2560x1440";
+
+    private static DockResult Solta(int x, int y, Orientation atual) => PillDock.Snap(
+        new Point(x, y), atual == Orientation.Vertical ? VerticalSize : HorizontalSize, atual,
+        VerticalSize, HorizontalSize, Area, Limiar);
+
+    [Theory]
+    [InlineData(10, 500, Orientation.Vertical, 0, 500, Orientation.Vertical)]           // esquerda
+    [InlineData(1874, 500, Orientation.Vertical, 1884, 500, Orientation.Vertical)]      // direita
+    [InlineData(900, 10, Orientation.Horizontal, 900, 0, Orientation.Horizontal)]       // topo
+    [InlineData(900, 994, Orientation.Horizontal, 900, 1004, Orientation.Horizontal)]   // base
+    public void Encaixa_em_cada_borda(int x, int y, Orientation atual, int ex, int ey, Orientation eo)
+    {
+        Assert.Equal(new DockResult(new Point(ex, ey), eo), Solta(x, y, atual));
+    }
+
+    [Theory]
+    [InlineData(5, 10, Orientation.Vertical, 0, 0, Orientation.Vertical)]                // sup. esq.: lateral mais perto
+    [InlineData(10, 3, Orientation.Vertical, 0, 0, Orientation.Horizontal)]              // sup. esq.: topo mais perto
+    [InlineData(5, 5, Orientation.Vertical, 0, 0, Orientation.Vertical)]                 // empate: vertical
+    [InlineData(1874, 15, Orientation.Vertical, 1884, 0, Orientation.Vertical)]          // sup. dir.: lateral mais perto
+    [InlineData(1874, 3, Orientation.Vertical, 1768, 0, Orientation.Horizontal)]         // sup. dir.: topo mais perto
+    [InlineData(10, 893, Orientation.Vertical, 0, 908, Orientation.Vertical)]            // inf. esq.: lateral mais perto
+    [InlineData(10, 905, Orientation.Vertical, 0, 1004, Orientation.Horizontal)]         // inf. esq.: base mais perto
+    [InlineData(1874, 893, Orientation.Vertical, 1884, 908, Orientation.Vertical)]       // inf. dir.: lateral mais perto
+    [InlineData(1874, 905, Orientation.Vertical, 1768, 1004, Orientation.Horizontal)]    // inf. dir.: base mais perto
+    public void Encaixa_no_canto_com_o_tamanho_da_orientacao_final(int x, int y, Orientation atual, int ex, int ey, Orientation eo)
+    {
+        var r = Solta(x, y, atual);
+        Assert.Equal(new DockResult(new Point(ex, ey), eo), r);
+
+        var size = eo == Orientation.Vertical ? VerticalSize : HorizontalSize;
+        Assert.True(r.Location.X == 0 || r.Location.X + size.Width == Area.Right, "não encosta na lateral");
+        Assert.True(r.Location.Y == 0 || r.Location.Y + size.Height == Area.Bottom, "não encosta em topo/base");
+    }
+
+    [Theory]
+    [InlineData(Orientation.Vertical)]
+    [InlineData(Orientation.Horizontal)]
+    public void Meio_da_tela_nao_encaixa_e_mantem_a_orientacao(Orientation atual)
+    {
+        Assert.Equal(new DockResult(new Point(900, 500), atual), Solta(900, 500, atual));
+    }
+
+    [Fact]
+    public void Solta_fora_da_area_encaixa_ou_fica_dentro()
+    {
+        Assert.Equal(new DockResult(new Point(0, 500), Orientation.Vertical), Solta(-50, 500, Orientation.Vertical));
+        Assert.Equal(new DockResult(new Point(900, 1004), Orientation.Horizontal), Solta(900, 2000, Orientation.Horizontal));
+    }
+
+    [Theory]
+    [InlineData(24, 0)]   // dentro do limite: encaixa
+    [InlineData(25, 25)]  // fora do limite: mantém
+    public void Limiar_de_24_px_na_borda_esquerda(int x, int esperadoX)
+    {
+        Assert.Equal(new DockResult(new Point(esperadoX, 500), Orientation.Vertical), Solta(x, 500, Orientation.Vertical));
+    }
+
+    [Fact]
+    public void Limiar_de_24_px_vale_para_topo_e_direita()
+    {
+        Assert.Equal(new DockResult(new Point(900, 0), Orientation.Horizontal), Solta(900, 24, Orientation.Horizontal));
+        Assert.Equal(new DockResult(new Point(900, 25), Orientation.Horizontal), Solta(900, 25, Orientation.Horizontal));
+        Assert.Equal(new DockResult(new Point(1884, 500), Orientation.Vertical), Solta(1860, 500, Orientation.Vertical));
+        Assert.Equal(new DockResult(new Point(1859, 500), Orientation.Vertical), Solta(1859, 500, Orientation.Vertical));
+    }
+
+    [Fact]
+    public void Resolve_usa_a_posicao_salva_do_monitor()
+    {
+        var telas = new[] { (Key: Primaria, Area: Area) };
+        var posicoes = new Dictionary<string, PillPosition> { [Primaria] = new(300, 400, true) };
+
+        var (monitor, r) = PillDock.Resolve(Primaria, posicoes, telas, Primaria, VerticalSize, HorizontalSize);
+
+        Assert.Equal(Primaria, monitor);
+        Assert.Equal(new DockResult(new Point(300, 400), Orientation.Horizontal), r);
+    }
+
+    [Fact]
+    public void Resolve_limita_posicao_salva_fora_da_area()
+    {
+        var telas = new[] { (Key: Primaria, Area: Area) };
+        var posicoes = new Dictionary<string, PillPosition> { [Primaria] = new(5000, -300, false) };
+
+        var (_, r) = PillDock.Resolve(Primaria, posicoes, telas, Primaria, VerticalSize, HorizontalSize);
+
+        Assert.Equal(new DockResult(new Point(Area.Right - VerticalSize.Width, 0), Orientation.Vertical), r);
+    }
+
+    [Fact]
+    public void Monitor_salvo_ausente_volta_ao_canto_padrao_do_principal()
+    {
+        var telas = new[] { (Key: Primaria, Area: Area) };
+        var posicoes = new Dictionary<string, PillPosition> { [Externa] = new(3000, 300, false) };
+
+        var (monitor, r) = PillDock.Resolve(Externa, posicoes, telas, Primaria, VerticalSize, HorizontalSize);
+
+        Assert.Equal(Primaria, monitor);
+        Assert.Equal(new DockResult(
+            new Point(Area.Right - VerticalSize.Width, Area.Top + (Area.Height - VerticalSize.Height) / 2),
+            Orientation.Vertical), r);
+    }
+
+    [Fact]
+    public void Sem_monitor_salvo_e_sem_posicoes_usa_o_canto_padrao()
+    {
+        var telas = new[] { (Key: Primaria, Area: Area) };
+
+        var (monitor, r) = PillDock.Resolve(null, null, telas, Primaria, VerticalSize, HorizontalSize);
+
+        Assert.Equal(Primaria, monitor);
+        Assert.Equal(new DockResult(new Point(1884, 454), Orientation.Vertical), r);
+    }
+
+    [Fact]
+    public void Duas_telas_usa_a_externa_e_sem_ela_volta_ao_principal()
+    {
+        var externa = new Rectangle(1920, 0, 2560, 1400);
+        var duas = new[] { (Key: Primaria, Area: Area), (Key: Externa, Area: externa) };
+        var posicoes = new Dictionary<string, PillPosition> { [Externa] = new(3000, 300, false) };
+
+        var (monitor, r) = PillDock.Resolve(Externa, posicoes, duas, Primaria, VerticalSize, HorizontalSize);
+        Assert.Equal(Externa, monitor);
+        Assert.Equal(new DockResult(new Point(3000, 300), Orientation.Vertical), r);
+
+        var soPrincipal = new[] { (Key: Primaria, Area: Area) };
+        var (volta, padrao) = PillDock.Resolve(Externa, posicoes, soPrincipal, Primaria, VerticalSize, HorizontalSize);
+        Assert.Equal(Primaria, volta);
+        Assert.Equal(new DockResult(new Point(1884, 454), Orientation.Vertical), padrao);
+    }
+
+    [Fact]
+    public void Chave_do_monitor_junta_nome_e_resolucao()
+    {
+        Assert.Equal("\\\\.\\DISPLAY1|1920x1080", PillDock.MonitorKey("\\\\.\\DISPLAY1", new Rectangle(0, 0, 1920, 1080)));
+    }
+
+    [Fact]
+    public void Posicao_da_pilula_sobrevive_a_JSON()
+    {
+        var s = new Settings(PillMonitor: Externa, PillPositions: new() { [Externa] = new PillPosition(3000, 300, false) });
+        var volta = System.Text.Json.JsonSerializer.Deserialize<Settings>(System.Text.Json.JsonSerializer.Serialize(s))!;
+        Assert.Equal(Externa, volta.PillMonitor);
+        Assert.Equal(new PillPosition(3000, 300, false), volta.PillPositions![Externa]);
+
+        var antigo = System.Text.Json.JsonSerializer.Deserialize<Settings>("""{ "Profile": "Frio" }""")!;
+        Assert.Null(antigo.PillMonitor);
+        Assert.Null(antigo.PillPositions);
+    }
+}

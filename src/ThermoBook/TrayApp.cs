@@ -59,6 +59,9 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Desligar a tela", null, (_, _) => DisplayService.TurnOff())
             { ToolTipText = "Desliga o monitor sem suspender o PC. Mexer o mouse religa." });
+        _pill.Restore(_settings.PillMonitor, _settings.PillPositions);
+        _pill.PlacementChanged += (key, pos) =>
+            SaveSettings(_settings with { PillMonitor = key, PillPositions = new(_settings.PillPositions ?? []) { [key] = pos } });
         // Provisório da 9.1 (a 9.4 cuida de mostrar/ocultar e lembrar a escolha).
         var pillItem = new ToolStripMenuItem("Mostrar pílula") { CheckOnClick = true };
         pillItem.Click += (_, _) => { if (pillItem.Checked) _pill.Show(); else _pill.Hide(); };

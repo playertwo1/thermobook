@@ -139,12 +139,14 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 9.2: `PillLayout` (um só código para vertical e horizontal, testado: retângulos sem sobreposição e dentro da janela em 100/125/150/200%), linhas de temperatura (cor por limiar), CPU, GPU e RAM com medidor de 2 px, ponto do modo (cor por modo, sem vermelho/laranja; cinza em Personalizado) com anel quando o segundo plano está ligado, `–` para valor indisponível e `AccessibleObject` por linha. Conferi a renderização em imagem (vertical e horizontal, 100%). **Falta verificar rodando o app:** nitidez em 150% e 200% num monitor real; leitor de tela lendo as linhas.
 
 ### 9.3 Posição e encaixe
-- [ ] Arrastar pela pílula inteira (sem usar a barra de título do Windows).
-- [ ] Ao soltar a até 24 px de uma borda, encaixa; perto de duas, encaixa no canto. Borda lateral → vertical; topo/base → horizontal.
-- [ ] Salvar posição por monitor no `settings.json`; restaurar ao abrir. Se o monitor sumiu (cabo desligado), volta ao canto padrão do monitor principal (direita, centro vertical).
-- [ ] Reagir a `SystemEvents.DisplaySettingsChanged` e `WM_DPICHANGED`.
+- [x] Arrastar pela pílula inteira (sem usar a barra de título do Windows).
+- [x] Ao soltar a até 24 px de uma borda, encaixa; perto de duas, encaixa no canto. Borda lateral → vertical; topo/base → horizontal.
+- [x] Salvar posição por monitor no `settings.json`; restaurar ao abrir. Se o monitor sumiu (cabo desligado), volta ao canto padrão do monitor principal (direita, centro vertical).
+- [x] Reagir a `SystemEvents.DisplaySettingsChanged` e `WM_DPICHANGED`.
 
 **Pronto quando:** teste da função de encaixe (posição solta + área de trabalho → posição final e orientação) cobre as 4 bordas, os 4 cantos e o meio da tela; desconectar o monitor externo traz a pílula de volta para a tela do notebook.
+
+> Feito no PR da 9.3: `PillDock.Snap`/`Resolve` (lógica pura, testada: 4 bordas, 4 cantos, meio da tela, limite de 24 px, monitor ausente → canto padrão do principal), arrastar pela pílula inteira (sem foco), posição por monitor em `settings.json` (`PillMonitor`/`PillPositions`, chave = nome do dispositivo + resolução), `OnDpiChanged` e `SystemEvents.DisplaySettingsChanged` (reposiciona na thread da interface). **Falta verificar rodando o app:** arrastar e encaixar de verdade, e desligar o monitor externo traz a pílula de volta para a tela do notebook.
 
 ### 9.4 Convivência
 - [ ] Esconder quando um app estiver em tela cheia (`SHQueryUserNotificationState` = `QUNS_BUSY`/`QUNS_RUNNING_D3D_FULL_SCREEN`/`QUNS_PRESENTATION_MODE`), voltar sozinha depois.
