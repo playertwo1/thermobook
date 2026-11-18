@@ -182,9 +182,11 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 10.2: `QuickPanel` (cartão de 280 px com 6 modos em grade 3x2, botões Segundo plano / Desligar tela / Ferramentas e rodapé "Abrir painel completo"), clique simples na pílula abre/fecha, ancorado pela mesma `FlyoutPlacement` do flyout, recebe foco (`CanActivate` em `FloatingForm`), Esc/clicar fora fecham (`Deactivate`), trocar modo usa o mesmo `ApplyMode` do menu da bandeja, e `PublishMode` atualiza pílula e painel. Conferi o visual em imagem. **Diferenças e pendências:** os botões de modo não têm ícone (só nome); "Ferramentas" abre por enquanto o painel completo atual (a aba Ferramentas é da fase 12); a engrenagem de configurações do rodapé não foi feita. **Falta verificar rodando o app:** trocar modo e ligar o segundo plano só com o teclado (Tab/setas/Enter/Esc); o painel realmente recebe foco ao clicar na pílula; o resultado aparece na pílula na leitura seguinte.
 
 ### 10.3 Unificar a interface
-- [ ] Bandeja, pílula, painel rápido e painel completo leem o mesmo estado (modo, segundo plano) de um único lugar no `TrayApp` e são avisados por um evento quando muda. Nada de cada janela consultar o `PowerService` por conta própria.
+- [x] Bandeja, pílula, painel rápido e painel completo leem o mesmo estado (modo, segundo plano) de um único lugar no `TrayApp` e são avisados por um evento quando muda. Nada de cada janela consultar o `PowerService` por conta própria.
 
 **Pronto quando:** trocar o modo em qualquer lugar atualiza os outros três sem esperar a próxima leitura de sensores.
+
+> Feito no PR da 10.3: `ModeStore` (único lugar do estado do modo e do segundo plano, evento `Changed` só quando muda; testado). O `TrayApp` é o único que lê o `PowerService` para a interface (`RefreshPowerState`) e `OnModeStateChanged` atualiza bandeja, pílula, painel rápido e painel completo; trocar o modo ou o segundo plano em qualquer lugar chama `RefreshPowerState` na hora, sem esperar a leitura de sensores. **Falta verificar rodando o app:** trocar o modo no painel rápido, no menu da bandeja e no painel completo e ver as outras três atualizarem sem atraso. Obs.: o painel completo ainda tem controles manuais de turbo/limite que continuam passando por `ApplyPower` (combinação Personalizada).
 
 ---
 

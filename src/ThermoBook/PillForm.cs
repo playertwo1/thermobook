@@ -93,7 +93,7 @@ internal sealed class PillForm : FloatingForm
         _scale = e.DeviceDpiNew / 96f;
         Font = MakeFont(); // não descarta a anterior: o WinForms ainda pode referenciá-la (vazamento mínimo, só em troca de DPI)
         Relayout();
-        Dock();
+        SnapToEdge();
         Invalidate();
     }
 
@@ -120,7 +120,7 @@ internal sealed class PillForm : FloatingForm
         if (!_dragging) return;
         _dragging = false;
         if (!_moved) { Clicked?.Invoke(); return; }
-        Dock();
+        SnapToEdge();
         var scr = Screen.FromControl(this);
         var key = PillDock.MonitorKey(scr.DeviceName, scr.Bounds);
         var pos = new PillPosition(Left, Top, _orientation == Orientation.Horizontal);
@@ -130,7 +130,7 @@ internal sealed class PillForm : FloatingForm
     }
 
     /// <summary>Encaixa na borda mais próxima (a até 24 px lógicos) do monitor onde a pílula está.</summary>
-    private void Dock()
+    private void SnapToEdge()
     {
         var (v, h) = Sizes();
         var area = Screen.FromControl(this).WorkingArea;

@@ -89,12 +89,12 @@ internal sealed class QuickPanel : FloatingForm
     /// <summary>Marca o modo atual (null = Personalizado) e o estado do segundo plano.</summary>
     public void SetState(PowerMode? current, bool background)
     {
-        foreach (var (m, b) in _modeButtons) Paint(b, m == current);
+        foreach (var (m, b) in _modeButtons) Highlight(b, m == current);
         _background.Text = background ? "Segundo\nplano ligado" : "Segundo\nplano desligado";
-        Paint(_background, background);
+        Highlight(_background, background);
     }
 
-    private static void Paint(Button b, bool on)
+    private static void Highlight(Button b, bool on)
     {
         b.BackColor = on ? Accent : Raised;
         b.ForeColor = on ? Color.Black : Fg; // preto sobre o azul: contraste muito melhor que branco

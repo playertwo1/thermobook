@@ -23,6 +23,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly PillForm _pill = new();
     private readonly PillFlyout _flyout;
     private readonly QuickPanel _quick;
+    private readonly ModeStore _modeState = new();
     private bool _fullscreenApp;
     private readonly PlanWatcher _planWatcher;
     private readonly HotkeyWindow _hotkeyWindow;
@@ -117,6 +118,7 @@ internal sealed class TrayApp : ApplicationContext
             if (_alertBalloonShown) ApplyMode(Cold);
         };
 
+        _modeState.Changed += OnModeStateChanged; // antes da primeira leitura: todas as janelas recebem o estado inicial
         ReapplySavedProfile();
         if (BackgroundMode.IsOn(_settings)) ApplyBackground(); // continua ligado depois de fechar o app ou reiniciar o PC
         _planWatcher = new PlanWatcher(OnPlanChanged);
@@ -173,8 +175,7 @@ internal sealed class TrayApp : ApplicationContext
             else ApplyBackground();
         }
         catch (Exception ex) { ShowError($"Não consegui mudar o modo segundo plano: {ex.Message}"); }
-        _background.Checked = BackgroundMode.IsOn(_settings);
-        PublishMode(PowerService.Current());
+        RefreshPowerState(); // publica o novo estado a todas as janelas na hora, sem esperar a leitura de sensores
         UpdateIcon(force: true);
     }
 
@@ -216,17 +217,16 @@ internal sealed class TrayApp : ApplicationContext
         catch (Exception ex) { ShowError($"Não consegui salvar as configurações: {ex.Message}"); }
     }
 
+    /// <summary>Única leitura do sistema para a interface: lê o plano ativo e publica em <see cref="_modeState"/>.</summary>
     private void RefreshPowerState(bool syncControls = false)
     {
         try
         {
             uint turbo = PowerService.GetTurbo(), limit = PowerService.GetLimit();
             var current = PowerService.Current();
-            foreach (var (p, item) in _profileItems) item.Checked = p == current;
-            _profileLabel = current?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, {limit}%)";
-            _turbo = turbo;
-            _panel.ShowPower(turbo, limit, current, syncControls);
-            PublishMode(current);
+            _modeState.Set(new ModeState(current, turbo, limit, BackgroundMode.IsOn(_settings)));
+            // Sem mudança o evento não dispara; ao abrir o painel ou depois de aplicar, os controles precisam acompanhar mesmo assim.
+            if (syncControls) _panel.ShowPower(turbo, limit, current, true);
         }
         catch (Exception ex)
         {
@@ -234,6 +234,18 @@ internal sealed class TrayApp : ApplicationContext
             _turbo = null;
             Debug.WriteLine(ex);
         }
+    }
+
+    /// <summary>Todas as janelas que mostram o modo ou o segundo plano são atualizadas aqui, e só aqui.</summary>
+    private void OnModeStateChanged(ModeState s)
+    {
+        foreach (var (p, item) in _profileItems) item.Checked = p == s.Mode;
+        _background.Checked = s.Background;
+        _profileLabel = s.Mode?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(s.Turbo, s.Turbo.ToString())}, {s.Limit}%)";
+        _turbo = s.Turbo;
+        _panel.ShowPower(s.Turbo, s.Limit, s.Mode, syncControls: false);
+        _pill.SetMode(s.Mode, s.Background);
+        _quick.SetState(s.Mode, s.Background);
     }
 
     /// <summary>Pílula visível se o usuário quer e nenhum app em tela cheia (jogo, vídeo, apresentação) está na frente.</summary>
@@ -245,18 +257,9 @@ internal sealed class TrayApp : ApplicationContext
         if (show) _pill.Show(); else _pill.Hide();
     }
 
-    /// <summary>Informa o modo e o segundo plano às janelas que mostram isso (pílula e painel rápido).</summary>
-    private void PublishMode(PowerMode? mode)
-    {
-        bool bg = BackgroundMode.IsOn(_settings);
-        _pill.SetMode(mode, bg);
-        _quick.SetState(mode, bg);
-    }
-
     private void ToggleQuickPanel()
     {
         if (_quick.Visible) { _quick.Hide(); return; }
-        PublishMode(PowerService.Current());
         float k = _pill.DeviceDpi / 96f;
         _quick.Location = FlyoutPlacement.Place(_pill.Bounds, _pill.PillOrientation, _quick.Size, Screen.FromControl(_pill).WorkingArea, (int)Math.Round(8 * k));
         _quick.Show();

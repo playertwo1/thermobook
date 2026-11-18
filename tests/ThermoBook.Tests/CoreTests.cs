@@ -1213,3 +1213,113 @@ public class QuickPanelTests
         Assert.Equal(esperado, botoes.OrderBy(b => b.TabIndex).Select(b => b.Text));
     }
 }
+
+public class ModeStoreTests
+{
+    // Modo null = Personalizado. Os argumentos são sempre passados explicitamente.
+    private static ModeState Estado(PowerMode? modo, uint turbo = 1, uint limite = 100, bool segundo = false) =>
+        new(modo, turbo, limite, segundo);
+
+    // Uma "janela" da interface: conta os avisos e guarda o último estado recebido.
+    private sealed class Janela
+    {
+        public int Avisos;
+        public ModeState? Ultimo;
+
+        public void Ao(ModeState s)
+        {
+            Avisos++;
+            Ultimo = s;
+        }
+    }
+
+    [Fact]
+    public void Estado_comeca_nulo_e_o_primeiro_Set_devolve_true_e_dispara_uma_vez()
+    {
+        var store = new ModeStore();
+        Assert.Null(store.State);
+
+        var recebidos = new List<ModeState>();
+        store.Changed += recebidos.Add;
+
+        var estado = Estado(PowerService.ModeByName("Equilibrado"));
+        Assert.True(store.Set(estado));
+        Assert.Equal(new[] { estado }, recebidos);
+        Assert.Equal<ModeState?>(estado, store.State);
+    }
+
+    [Fact]
+    public void Set_com_estado_igual_devolve_false_e_nao_dispara_de_novo()
+    {
+        var store = new ModeStore();
+        var disparos = 0;
+        store.Changed += _ => disparos++;
+
+        store.Set(Estado(PowerService.ModeByName("Equilibrado")));
+        Assert.False(store.Set(Estado(PowerService.ModeByName("Equilibrado"))));
+        Assert.Equal(1, disparos);
+    }
+
+    [Fact]
+    public void Mudar_segundo_plano_modo_personalizado_turbo_ou_limite_dispara()
+    {
+        var store = new ModeStore();
+        var disparos = 0;
+        store.Changed += _ => disparos++;
+
+        Assert.True(store.Set(Estado(PowerService.ModeByName("Frio"), 0, 50, false)));
+        Assert.True(store.Set(Estado(PowerService.ModeByName("Frio"), 0, 50, true)));         // só o segundo plano
+        Assert.True(store.Set(Estado(PowerService.ModeByName("Equilibrado"), 0, 50, true)));  // só o modo (Frio -> Equilibrado)
+        Assert.True(store.Set(Estado(null, 0, 50, true)));                                    // modo vira Personalizado
+        Assert.True(store.Set(Estado(null, 2, 50, true)));                                    // só o turbo
+        Assert.True(store.Set(Estado(null, 2, 80, true)));                                    // só o limite
+        Assert.Equal(6, disparos);
+    }
+
+    [Fact]
+    public void Varios_assinantes_recebem_o_mesmo_estado_na_ordem_e_o_removido_deixa_de_receber()
+    {
+        var store = new ModeStore();
+        var recebidos = new List<(string Quem, ModeState Estado)>();
+        Action<ModeState> a = s => recebidos.Add(("A", s));
+        Action<ModeState> b = s => recebidos.Add(("B", s));
+        Action<ModeState> c = s => recebidos.Add(("C", s));
+        store.Changed += a;
+        store.Changed += b;
+        store.Changed += c;
+
+        var primeiro = Estado(PowerService.ModeByName("Frio"));
+        store.Set(primeiro);
+        Assert.Equal(new[] { ("A", primeiro), ("B", primeiro), ("C", primeiro) }, recebidos);
+
+        recebidos.Clear();
+        store.Changed -= b;
+        var segundo = Estado(PowerService.ModeByName("Alto"), 2);
+        store.Set(segundo);
+        Assert.Equal(new[] { ("A", segundo), ("C", segundo) }, recebidos);
+    }
+
+    [Fact]
+    public void Um_Set_atualiza_as_quatro_janelas_com_o_mesmo_estado()
+    {
+        // Bandeja, pílula, painel rápido e painel completo: todas assinam o mesmo ModeStore.
+        var store = new ModeStore();
+        var bandeja = new Janela();
+        var pilula = new Janela();
+        var rapido = new Janela();
+        var completo = new Janela();
+        store.Changed += bandeja.Ao;
+        store.Changed += pilula.Ao;
+        store.Changed += rapido.Ao;
+        store.Changed += completo.Ao;
+
+        var estado = Estado(PowerService.ModeByName("Máximo"), 4, 100, true);
+        store.Set(estado);
+
+        foreach (var janela in new[] { bandeja, pilula, rapido, completo })
+        {
+            Assert.Equal(1, janela.Avisos);
+            Assert.Equal<ModeState?>(estado, janela.Ultimo);
+        }
+    }
+}
