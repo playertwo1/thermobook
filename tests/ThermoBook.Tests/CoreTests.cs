@@ -913,3 +913,29 @@ public class PillDockTests
         Assert.Null(antigo.PillPositions);
     }
 }
+
+public class FullscreenGuardTests
+{
+    [Theory]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    [InlineData(4, true)]
+    [InlineData(1, false)]
+    [InlineData(5, false)]
+    [InlineData(6, false)]
+    [InlineData(7, false)]
+    [InlineData(0, false)]
+    public void ShouldHide_so_nos_estados_ocupado_e_tela_cheia(int state, bool expected) =>
+        Assert.Equal(expected, FullscreenGuard.ShouldHide(state));
+
+    [Fact]
+    public void IsFullscreenAppActive_nao_lanca() => _ = FullscreenGuard.IsFullscreenAppActive();
+
+    [Fact]
+    public void ShowPill_liga_por_padrao_e_sobrevive_ao_JSON()
+    {
+        Assert.True(new Settings().ShowPill);
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<Settings>("""{ "Profile": "Frio" }""")!.ShowPill);
+        Assert.False(System.Text.Json.JsonSerializer.Deserialize<Settings>("""{ "ShowPill": false }""")!.ShowPill);
+    }
+}

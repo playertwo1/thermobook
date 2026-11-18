@@ -149,11 +149,13 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 9.3: `PillDock.Snap`/`Resolve` (lógica pura, testada: 4 bordas, 4 cantos, meio da tela, limite de 24 px, monitor ausente → canto padrão do principal), arrastar pela pílula inteira (sem foco), posição por monitor em `settings.json` (`PillMonitor`/`PillPositions`, chave = nome do dispositivo + resolução), `OnDpiChanged` e `SystemEvents.DisplaySettingsChanged` (reposiciona na thread da interface). **Falta verificar rodando o app:** arrastar e encaixar de verdade, e desligar o monitor externo traz a pílula de volta para a tela do notebook.
 
 ### 9.4 Convivência
-- [ ] Esconder quando um app estiver em tela cheia (`SHQueryUserNotificationState` = `QUNS_BUSY`/`QUNS_RUNNING_D3D_FULL_SCREEN`/`QUNS_PRESENTATION_MODE`), voltar sozinha depois.
-- [ ] Menu da bandeja: "Mostrar pílula" (check), salvo no `settings.json`. Ligado por padrão.
-- [ ] Botão direito na pílula abre o mesmo `ContextMenuStrip` da bandeja.
+- [x] Esconder quando um app estiver em tela cheia (`SHQueryUserNotificationState` = `QUNS_BUSY`/`QUNS_RUNNING_D3D_FULL_SCREEN`/`QUNS_PRESENTATION_MODE`), voltar sozinha depois.
+- [x] Menu da bandeja: "Mostrar pílula" (check), salvo no `settings.json`. Ligado por padrão.
+- [x] Botão direito na pílula abre o mesmo `ContextMenuStrip` da bandeja.
 
 **Pronto quando:** um vídeo em tela cheia no navegador esconde a pílula e sair da tela cheia mostra de novo; a pílula aberta o dia todo fica abaixo de ~1% de CPU.
+
+> Feito no PR da 9.4: `FullscreenGuard` (`SHQueryUserNotificationState`: BUSY, tela cheia D3D e modo apresentação escondem; consulta a cada 2 s; falha na consulta não esconde), item "Mostrar pílula" com check salvo em `settings.json` (`ShowPill`, ligado por padrão), botão direito na pílula abre o menu da bandeja. **Falta verificar rodando o app:** vídeo em tela cheia no navegador esconde a pílula e sair mostra de novo; uso de CPU da pílula aberta o dia todo abaixo de ~1% (não medido); o menu de contexto fecha ao clicar fora (a janela não ativa).
 
 ---
 
