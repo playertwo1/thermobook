@@ -179,7 +179,9 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 > Feito na 18.1: [VERIFICACAO-v0.3.md](VERIFICACAO-v0.3.md) (seções 1–4 no notebook, 5 na máquina com NVIDIA); README e PRODUCT passam a descrever as 5 novidades. O checklist foi escrito a partir do código, não de uso real: ajuste o que a primeira rodada mostrar.
 
 ### 18.2 Release
-- [ ] Propor o número da versão (proposta: `v0.3.0`, com beta antes se o dono quiser) e **esperar aprovação do dono** antes de criar a tag.
+- [x] Propor o número da versão (proposta: `v0.3.0`, com beta antes se o dono quiser) e **esperar aprovação do dono** antes de criar a tag.
+
+> **Proposta (A9), aguardando aprovação:** `v0.3.0-beta.1`, tag no `main` atual (b6b50dc ou o commit com as correções do checklist). Tag com hífen sai como pré-lançamento; a versão vem da tag (`release.yml` passa `-p:Version`), então **nenhum arquivo muda** para subir. A `v0.3.0` final só depois de o dono passar o [checklist](VERIFICACAO-v0.3.md). Nada foi criado.
 - [ ] Tag → `release.yml` publica o instalador; instalar pela Release. A v0.2.0 não se atualiza sozinha para ela (a atualização automática só existe a partir desta versão); a 17 se confere de verdade na versão seguinte.
 
 **Pronto quando:** o dono instala pela Release, passa o checklist e não sente falta de nada do backlog que foi feito.

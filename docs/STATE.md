@@ -59,6 +59,7 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 | A6 | Formato e duração do histórico | Uma linha por minuto, `;` com vírgula decimal (Excel em português), 30 dias, ligado por padrão (~100 KB por dia). | 16.1 |
 | A7 | Atualização: avisar ou instalar sozinho? Betas? | Só avisa; baixa e instala com um clique do usuário. Betas só com a opção ligada. | 17.1 |
 | A8 | De onde sai a tag `v0.2.0` se o código das fases 13+ já estiver no `main` | Tag no commit da beta verificada (`84e6d98` ou a última correção da verificação), não no `main` com fases novas pela metade. | 12.4 |
+| A9 | Número e momento da próxima versão | Proposta: `v0.3.0-beta.1` (pré-lançamento) no `main`, depois `v0.3.0` quando o dono passar o [checklist](VERIFICACAO-v0.3.md). Aguardando aprovação do dono; nenhuma tag criada. | 18.2 |
 
 ## Riscos ativos
 
