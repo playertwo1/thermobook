@@ -34,6 +34,11 @@ internal sealed class PillForm : FloatingForm
 
     /// <summary>Posição final escolhida pelo usuário (monitor + posição) para salvar no settings.json.</summary>
     public event Action<string, PillPosition>? PlacementChanged;
+
+    /// <summary>Clique simples (soltou sem arrastar).</summary>
+    public event Action? Clicked;
+    private Point _downAt;
+    private bool _moved;
     private PowerMode? _mode;
     internal PowerMode? Mode => _mode;
     internal bool Background => _background;
@@ -97,13 +102,16 @@ internal sealed class PillForm : FloatingForm
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left) return;
         _dragging = true;
+        _downAt = MousePosition;
+        _moved = false;
         _dragOffset = new Point(MousePosition.X - Left, MousePosition.Y - Top);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (_dragging) Location = new Point(MousePosition.X - _dragOffset.X, MousePosition.Y - _dragOffset.Y);
+        if (_dragging && (Math.Abs(MousePosition.X - _downAt.X) > 3 || Math.Abs(MousePosition.Y - _downAt.Y) > 3)) _moved = true;
+        if (_dragging && _moved) Location = new Point(MousePosition.X - _dragOffset.X, MousePosition.Y - _dragOffset.Y);
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -111,6 +119,7 @@ internal sealed class PillForm : FloatingForm
         base.OnMouseUp(e);
         if (!_dragging) return;
         _dragging = false;
+        if (!_moved) { Clicked?.Invoke(); return; }
         Dock();
         var scr = Screen.FromControl(this);
         var key = PillDock.MonitorKey(scr.DeviceName, scr.Bounds);

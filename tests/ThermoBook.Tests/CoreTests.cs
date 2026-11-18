@@ -1078,3 +1078,138 @@ public class FlyoutTests
         Assert.True(form.Height > altura);
     }
 }
+
+public class QuickPanelTests
+{
+    private static readonly Color Destaque = Color.FromArgb(0x40, 0x9C, 0xFF), Neutro = Color.FromArgb(0x14, 0x14, 0x14);
+
+    private static QuickPanel Abrir(Action<PowerMode>? modo = null, Action? segundoPlano = null, Action? tela = null, Action? completo = null)
+    {
+        var painel = new QuickPanel(modo ?? (_ => { }), segundoPlano ?? (() => { }), tela ?? (() => { }), completo ?? (() => { }));
+        painel.Location = new Point(-3000, -3000); // mostra de verdade, mas fora da tela
+        painel.Show();
+        Application.DoEvents();
+        return painel;
+    }
+
+    private static Button Botao(QuickPanel painel, string texto) =>
+        painel.Controls.OfType<Button>().Single(b => b.Text == texto);
+
+    // O texto do botão de segundo plano muda com o estado ("Segundo\nplano ligado").
+    private static Button Segundo(QuickPanel painel) =>
+        painel.Controls.OfType<Button>().Single(b => b.Text.StartsWith("Segundo"));
+
+    [Fact]
+    public void Cada_botao_de_modo_aplica_o_seu_modo_na_ordem_de_Modes()
+    {
+        var aplicados = new List<PowerMode>();
+        using var painel = Abrir(modo: aplicados.Add);
+
+        foreach (var m in PowerService.Modes) Botao(painel, m.Name).PerformClick();
+
+        Assert.Equal(PowerService.Modes.Select(m => m.Name), aplicados.Select(m => m.Name));
+    }
+
+    [Fact]
+    public void Desligar_tela_chama_a_acao_e_esconde_o_painel()
+    {
+        var chamadas = 0;
+        using var painel = Abrir(tela: () => chamadas++);
+
+        Botao(painel, "Desligar tela").PerformClick();
+
+        Assert.Equal(1, chamadas);
+        Assert.False(painel.Visible);
+    }
+
+    [Fact]
+    public void Ferramentas_abre_o_painel_completo_e_esconde_o_painel()
+    {
+        var chamadas = 0;
+        using var painel = Abrir(completo: () => chamadas++);
+
+        Botao(painel, "Ferramentas").PerformClick();
+
+        Assert.Equal(1, chamadas);
+        Assert.False(painel.Visible);
+    }
+
+    [Fact]
+    public void Abrir_painel_completo_chama_a_acao_e_esconde_o_painel()
+    {
+        var chamadas = 0;
+        using var painel = Abrir(completo: () => chamadas++);
+
+        Botao(painel, "Abrir painel completo").PerformClick();
+
+        Assert.Equal(1, chamadas);
+        Assert.False(painel.Visible);
+    }
+
+    [Fact]
+    public void Segundo_plano_chama_a_acao_e_mostra_o_estado()
+    {
+        var chamadas = 0;
+        using var painel = Abrir(segundoPlano: () => chamadas++);
+
+        Segundo(painel).PerformClick();
+        Assert.Equal(1, chamadas);
+
+        painel.SetState(null, true);
+        Assert.Contains("ligado", Segundo(painel).Text);
+        Assert.DoesNotContain("desligado", Segundo(painel).Text);
+
+        painel.SetState(null, false);
+        Assert.Contains("desligado", Segundo(painel).Text);
+    }
+
+    [Fact]
+    public void SetState_destaca_so_o_modo_atual()
+    {
+        using var painel = Abrir();
+        var frio = PowerService.ModeByName("Frio")!;
+
+        painel.SetState(frio, false);
+        foreach (var m in PowerService.Modes)
+            Assert.Equal(m == frio ? Destaque : Neutro, Botao(painel, m.Name).BackColor);
+
+        painel.SetState(null, false);
+        foreach (var m in PowerService.Modes)
+            Assert.Equal(Neutro, Botao(painel, m.Name).BackColor);
+    }
+
+    [Fact]
+    public void Painel_rapido_pode_receber_foco_e_tem_TOOLWINDOW()
+    {
+        using var painel = Abrir();
+        int ex = PillTests.GetWindowLongW(painel.Handle, -20 /* GWL_EXSTYLE */);
+        Assert.NotEqual(0, ex & 0x80 /* WS_EX_TOOLWINDOW */);
+        Assert.Equal(0, ex & 0x08000000 /* WS_EX_NOACTIVATE */);
+    }
+
+    [Fact]
+    public void Pilula_e_flyout_continuam_sem_foco()
+    {
+        using var pill = new PillForm();
+        using var flyout = new FlyoutForm();
+        foreach (var janela in new Form[] { pill, flyout })
+        {
+            int ex = PillTests.GetWindowLongW(janela.Handle, -20 /* GWL_EXSTYLE */);
+            Assert.NotEqual(0, ex & 0x80 /* WS_EX_TOOLWINDOW */);
+            Assert.NotEqual(0, ex & 0x08000000 /* WS_EX_NOACTIVATE */);
+        }
+    }
+
+    [Fact]
+    public void Tab_percorre_modos_depois_acoes_e_rodape()
+    {
+        using var painel = Abrir();
+        var botoes = painel.Controls.OfType<Button>().ToList();
+        Assert.All(botoes, b => Assert.True(b.TabStop));
+        Assert.Equal(botoes.Count, botoes.Select(b => b.TabIndex).Distinct().Count()); // TabIndex definido, não empatado
+
+        var esperado = PowerService.Modes.Select(m => m.Name)
+            .Concat(new[] { "Segundo plano", "Desligar tela", "Ferramentas", "Abrir painel completo" });
+        Assert.Equal(esperado, botoes.OrderBy(b => b.TabIndex).Select(b => b.Text));
+    }
+}

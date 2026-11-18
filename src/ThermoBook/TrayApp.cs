@@ -22,6 +22,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _background;
     private readonly PillForm _pill = new();
     private readonly PillFlyout _flyout;
+    private readonly QuickPanel _quick;
     private bool _fullscreenApp;
     private readonly PlanWatcher _planWatcher;
     private readonly HotkeyWindow _hotkeyWindow;
@@ -62,6 +63,8 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(new ToolStripMenuItem("Desligar a tela", null, (_, _) => DisplayService.TurnOff())
             { ToolTipText = "Desliga o monitor sem suspender o PC. Mexer o mouse religa." });
         _flyout = new PillFlyout(_pill);
+        _quick = new QuickPanel(m => ApplyMode(m), ToggleBackground, DisplayService.TurnOff, ShowPanel);
+        _pill.Clicked += ToggleQuickPanel;
         _pill.Restore(_settings.PillMonitor, _settings.PillPositions);
         _pill.PlacementChanged += (key, pos) =>
             SaveSettings(_settings with { PillMonitor = key, PillPositions = new(_settings.PillPositions ?? []) { [key] = pos } });
@@ -171,7 +174,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         catch (Exception ex) { ShowError($"Não consegui mudar o modo segundo plano: {ex.Message}"); }
         _background.Checked = BackgroundMode.IsOn(_settings);
-        _pill.SetMode(PowerService.Current(), BackgroundMode.IsOn(_settings));
+        PublishMode(PowerService.Current());
         UpdateIcon(force: true);
     }
 
@@ -223,7 +226,7 @@ internal sealed class TrayApp : ApplicationContext
             _profileLabel = current?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(turbo, turbo.ToString())}, {limit}%)";
             _turbo = turbo;
             _panel.ShowPower(turbo, limit, current, syncControls);
-            _pill.SetMode(current, BackgroundMode.IsOn(_settings));
+            PublishMode(current);
         }
         catch (Exception ex)
         {
@@ -240,6 +243,25 @@ internal sealed class TrayApp : ApplicationContext
         bool show = _settings.ShowPill && !_fullscreenApp;
         if (show == _pill.Visible) return;
         if (show) _pill.Show(); else _pill.Hide();
+    }
+
+    /// <summary>Informa o modo e o segundo plano às janelas que mostram isso (pílula e painel rápido).</summary>
+    private void PublishMode(PowerMode? mode)
+    {
+        bool bg = BackgroundMode.IsOn(_settings);
+        _pill.SetMode(mode, bg);
+        _quick.SetState(mode, bg);
+    }
+
+    private void ToggleQuickPanel()
+    {
+        if (_quick.Visible) { _quick.Hide(); return; }
+        PublishMode(PowerService.Current());
+        float k = _pill.DeviceDpi / 96f;
+        _quick.Location = FlyoutPlacement.Place(_pill.Bounds, _pill.PillOrientation, _quick.Size, Screen.FromControl(_pill).WorkingArea, (int)Math.Round(8 * k));
+        _quick.Show();
+        _quick.Activate();
+        _quick.Focus();
     }
 
     private void OnTick()
@@ -308,6 +330,7 @@ internal sealed class TrayApp : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _panel.Dispose();
+        _quick.Dispose();
         _flyout.Dispose();
         _pill.Dispose();
         _sensors.Dispose();
