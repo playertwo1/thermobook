@@ -4,8 +4,8 @@
 
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1 feita, falta verificar rodando o app)
-**Próxima subfase:** [9.2 Conteúdo](ROADMAP.md#92-conteúdo)
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.2 feitas, falta verificar rodando o app)
+**Próxima subfase:** [9.3 Posição e encaixe](ROADMAP.md#93-posição-e-encaixe)
 
 ## Progresso da v0.2
 
@@ -13,7 +13,7 @@
 |---|---|
 | 7 Motor de energia e modos | 🟨 em andamento (7.1–7.4 feitas, falta conferir no notebook) |
 | 8 Segundo plano e desligar tela | 🟨 em andamento (8.1–8.3 feitas, falta verificar no notebook) |
-| 9 Pílula flutuante | 🟨 em andamento (9.1 feita, falta verificar rodando o app) |
+| 9 Pílula flutuante | 🟨 em andamento (9.1–9.2 feitas, falta verificar rodando o app) |
 | 10 Painel rápido e flyout | ⬜ não iniciada |
 | 11 Ferramentas com administrador | ⬜ não iniciada |
 | 12 Painel em abas, instalador, release | ⬜ não iniciada |
@@ -51,6 +51,7 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 
 ## Notas da última sessão
 
+- 9.2: `PillLayout` + desenho completo da pílula (vertical/horizontal), `SetMode` ligado ao `TrayApp`. Cores do ponto do modo escolhidas por mim (DESIGN.md não define): Economia verde, Frio azul, Eficiência ciano, Equilibrado branco, Alto/Máximo roxo, Personalizado cinza.
 - 9.1: `PillForm` base + item provisório no menu. Não verifiquei foco/Alt+Tab rodando o app.
 - 8.3: `BackgroundMode` + menu + ponto azul no ícone. Não testei fechar a tampa.
 - 8.2: `HotkeyService` + `HotkeyWindow`; `Settings.Hotkey` novo com padrão, compatível com settings antigos.

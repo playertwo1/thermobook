@@ -129,12 +129,14 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 > Feito no PR da 9.1: `PillForm` (`WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE`, `WM_MOUSEACTIVATE` → `MA_NOACTIVATE`, `TopMost`, fora da barra de tarefas), cantos pelo DWM com `Region` como plano B, `PillState` arredondado para só redesenhar quando algo muda, e item provisório "Mostrar pílula" no menu da bandeja (a 9.4 refina). Estilos de janela testados; pintura é mínima (o desenho final é a 9.2). **Falta verificar rodando o app:** clicar na pílula com o Bloco de Notas em foco não tira o foco dele; a pílula não aparece no Alt+Tab. Observação: o atributo de cantos do DWM no Windows 11 arredonda pouco (não é uma cápsula completa); conferir o visual no 9.2.
 
 ### 9.2 Conteúdo
-- [ ] Linhas: temperatura (cor por limiar), CPU, GPU, RAM (número + medidor de 2 px), modo atual (ponto; anel se segundo plano ligado).
-- [ ] Orientação vertical e horizontal com o mesmo código de layout.
-- [ ] Nome acessível por linha (`AccessibleObject` próprio).
-- [ ] Valor indisponível mostra `–`.
+- [x] Linhas: temperatura (cor por limiar), CPU, GPU, RAM (número + medidor de 2 px), modo atual (ponto; anel se segundo plano ligado).
+- [x] Orientação vertical e horizontal com o mesmo código de layout.
+- [x] Nome acessível por linha (`AccessibleObject` próprio).
+- [x] Valor indisponível mostra `–`.
 
 **Pronto quando:** teste do layout (dado tamanho e orientação, retângulos das linhas não se sobrepõem e cabem na janela); fica nítida em 100%, 150% e 200%.
+
+> Feito no PR da 9.2: `PillLayout` (um só código para vertical e horizontal, testado: retângulos sem sobreposição e dentro da janela em 100/125/150/200%), linhas de temperatura (cor por limiar), CPU, GPU e RAM com medidor de 2 px, ponto do modo (cor por modo, sem vermelho/laranja; cinza em Personalizado) com anel quando o segundo plano está ligado, `–` para valor indisponível e `AccessibleObject` por linha. Conferi a renderização em imagem (vertical e horizontal, 100%). **Falta verificar rodando o app:** nitidez em 150% e 200% num monitor real; leitor de tela lendo as linhas.
 
 ### 9.3 Posição e encaixe
 - [ ] Arrastar pela pílula inteira (sem usar a barra de título do Windows).
