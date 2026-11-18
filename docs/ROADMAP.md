@@ -132,11 +132,13 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 > Feito na 16.1: `Services/HistoryWriter.cs`. Colunas: `hora;temperatura_c;cpu_pct;gpu_pct;gpu_temperatura_c;ram_pct;modo` (a da GPU NVIDIA já existe, vazia até a fase 15). Temperatura = máxima do minuto; CPU, GPU e RAM = média; valor ausente = célula vazia e não entra na média. UTF-8 com BOM (acentos no Excel), `;` e vírgula decimal. Arquivo `historico\AAAA-MM-DD.csv`; a linha vai para o arquivo do dia do seu minuto. Arquivo aberto no Excel não perde linha: ela fica guardada (até 1 dia) e vai na próxima tentativa. A poda só apaga `AAAA-MM-DD.csv` com data válida mais de 30 dias atrás (a de exatamente 30 fica). No `TrayApp`, um `System.Threading.Timer` de 1 s lê `Latest` e o nome do modo (volátil, atualizado pelo `ModeStore`) e grava fora da thread da interface; poda uma vez por dia; `Flush` ao sair. `Settings.History` (ligado) com caixa em Configurações. 331 testes. **Falta verificar rodando o app por alguns minutos:** o arquivo aparecendo, abrindo no Excel com as colunas certas, e o app aberto durante a virada do dia.
 
 ### 16.2 Gráfico de 24 h
-- [ ] Aba Monitor: alternar "Ao vivo / 24 h"; o modo 24 h lê os CSVs das últimas 24 h numa thread de fundo e reaproveita o `Graph` que já existe.
-- [ ] Botão "Abrir pasta do histórico".
-- [ ] Linha quebrada ou arquivo faltando é pulado, não derruba o gráfico.
+- [x] Aba Monitor: alternar "Ao vivo / 24 h"; o modo 24 h lê os CSVs das últimas 24 h numa thread de fundo e reaproveita o `Graph` que já existe.
+- [x] Botão "Abrir pasta do histórico".
+- [x] Linha quebrada ou arquivo faltando é pulado, não derruba o gráfico.
 
 **Pronto quando:** testes cobrem a leitura (24 h atravessando dois arquivos, linha quebrada, pasta vazia); rodando o app algumas horas, o gráfico mostra o período e o CSV abre no Excel com as colunas certas.
+
+> Feito na 16.2: `HistoryReader` (`Last24h`, `Parse`, `Segments`) em `Services/HistoryWriter.cs`; na aba Monitor, faixa "Ao vivo / 24 h / Abrir pasta do histórico". No modo 24 h, Temperatura, Processador, GPU e RAM mostram a série (eixo = 24 h até agora, rótulos "24 h atrás" e "agora", "Sem histórico nas últimas 24 h" se vazio); Disco e Bateria seguem ao vivo (o CSV não tem essas colunas). Leitura em `Task.Run`, relida a cada minuto enquanto a aba 24 h está ativa; lê com `FileShare.ReadWrite` (arquivo aberto no Excel não impede). A linha só liga pontos a até 3 min um do outro (app fechado = buraco, não reta); valor vazio sai. O minuto em andamento ainda não está no arquivo. Também: `UninstallTests` e `TweaksTests` entraram na mesma coleção do xUnit, o que acabou com a falha intermitente de registro (as duas apagam a chave pai de teste). 339 testes. **Falta verificar rodando o app:** o gráfico depois de algumas horas de histórico, aparência em 150%/200% e o botão da pasta.
 
 ---
 

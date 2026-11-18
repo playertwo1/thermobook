@@ -30,12 +30,60 @@ internal sealed partial class MainForm : Form
     private readonly Button[] _tabButtons = new Button[TabNames.Length];
     private readonly Control[] _pages;
     private readonly Font _bold;
+    private readonly Button _live, _day;
+    private readonly Func<DateTime, IReadOnlyList<HistoryPoint>> _readHistory;
+    private DateTime _dayLoaded;
 
     public PanelTab Tab { get; private set; }
 
-    /// <param name="openFan">null quando o app Configurações Samsung não está instalado.</param>
-    public MainForm(Action<PowerMode> applyMode, Action<uint, uint> applyPower, Action? openFan, Control tools, Control settings)
+    /// <summary>Os gráficos mostram as últimas 24 h do histórico em vez do último minuto.</summary>
+    internal bool DayMode { get; private set; }
+
+    internal void SetDayMode(bool on)
     {
+        DayMode = on;
+        Theme.Highlight(_live, !on);
+        Theme.Highlight(_day, on);
+        if (on) LoadDay();
+        else foreach (var c in new[] { _temp, _cpu, _gpu, _ram, _disk, _bat }) c.ShowDay(null, default);
+    }
+
+    /// <summary>Lê os CSVs fora da thread da interface e entrega o resultado a <see cref="ApplyDay"/>.</summary>
+    private void LoadDay()
+    {
+        var now = DateTime.Now;
+        _dayLoaded = now;
+        Task.Run(() => _readHistory(now)).ContinueWith(t =>
+        {
+            if (t.IsFaulted || IsDisposed || !IsHandleCreated) return;
+            try { BeginInvoke(() => ApplyDay(t.Result, now)); } catch (InvalidOperationException) { } // fechou no meio
+        });
+    }
+
+    /// <summary>Entrega a série de cada cartão que tem histórico (disco e bateria continuam ao vivo).</summary>
+    internal void ApplyDay(IReadOnlyList<HistoryPoint> points, DateTime now)
+    {
+        if (!DayMode) return; // o usuário voltou ao vivo antes de a leitura terminar
+        List<(DateTime, double)> Of(Func<HistoryPoint, double> f) => [.. points.Select(p => (p.Time, f(p)))];
+        _temp.ShowDay(Of(p => p.Temp), now);
+        _cpu.ShowDay(Of(p => p.Cpu), now);
+        _gpu.ShowDay(Of(p => p.Gpu), now);
+        _ram.ShowDay(Of(p => p.Ram), now);
+        _disk.ShowDay(null, default);
+        _bat.ShowDay(null, default);
+    }
+
+    private static void OpenDefaultFolder()
+    {
+        Directory.CreateDirectory(HistoryWriter.DefaultDir);
+        System.Diagnostics.Process.Start("explorer.exe", HistoryWriter.DefaultDir);
+    }
+
+    /// <param name="openFan">null quando o app Configurações Samsung não está instalado.</param>
+    public MainForm(Action<PowerMode> applyMode, Action<uint, uint> applyPower, Action? openFan, Control tools, Control settings,
+        Func<DateTime, IReadOnlyList<HistoryPoint>>? readHistory = null, Action? openHistoryFolder = null)
+    {
+        _readHistory = readHistory ?? (now => HistoryReader.Last24h(HistoryWriter.DefaultDir, now));
         SuspendLayout();
         // Tamanhos em pixels de 96 DPI; o WinForms escala para o DPI do monitor (PerMonitorV2 no csproj).
         AutoScaleDimensions = new SizeF(96, 96);
@@ -133,7 +181,22 @@ internal sealed partial class MainForm : Form
             nav.Controls.Add(b);
         }
 
-        _pages = [grid, modes, tools, settings];
+        // Aba Monitor: faixa "Ao vivo / 24 h" no topo e os cartões embaixo.
+        _live = Theme.Button("Ao vivo", 90);
+        _day = Theme.Button("24 h", 70);
+        _live.Click += (_, _) => SetDayMode(false);
+        _day.Click += (_, _) => SetDayMode(true);
+        var openFolder = Theme.Button("Abrir pasta do histórico");
+        openFolder.Click += (_, _) => (openHistoryFolder ?? OpenDefaultFolder)();
+        tip.SetToolTip(_day, "Temperatura, CPU, GPU e RAM das últimas 24 h, lidas dos arquivos do histórico (um ponto por minuto).");
+        var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(6, 4, 6, 0), BackColor = Bg };
+        bar.Controls.AddRange([_live, _day, openFolder]);
+        grid.Dock = DockStyle.Fill;
+        var monitor = new Panel { BackColor = Bg };
+        monitor.Controls.AddRange([grid, bar]); // Fill primeiro: o docking processa do último para o primeiro
+        SetDayMode(false);
+
+        _pages = [monitor, modes, tools, settings];
         var host = new Panel { Dock = DockStyle.Fill, BackColor = Bg };
         foreach (var page in _pages)
         {
@@ -216,6 +279,7 @@ internal sealed partial class MainForm : Form
                 power.BatteryChargeStatus.HasFlag(BatteryChargeStatus.Charging), power.BatteryLifeRemaining));
         }
 
+        if (DayMode && DateTime.Now - _dayLoaded > TimeSpan.FromMinutes(1)) LoadDay(); // uma linha nova por minuto
         _status.Text = $"Atualizado {DateTime.Now:HH:mm:ss}   |   Ventoinha: controlada pelo firmware Samsung (sem leitura de RPM no Windows)";
     }
 
@@ -285,6 +349,46 @@ internal sealed partial class MainForm : Form
             _graph.Invalidate();
         }
 
+        private List<(DateTime Time, double Value)>? _dayPoints;
+        private DateTime _dayNow;
+
+        /// <summary>Série das últimas 24 h até <paramref name="now"/>; null volta ao gráfico ao vivo.</summary>
+        public void ShowDay(List<(DateTime, double)>? points, DateTime now)
+        {
+            _dayPoints = points;
+            _dayNow = now;
+            _graph.Invalidate();
+        }
+
+        private void DrawDay(Graphics g, float w, float h)
+        {
+            var from = _dayNow.AddHours(-24);
+            using (var small = new Font("Segoe UI", 8f))
+            using (var dim = new SolidBrush(Dim))
+            {
+                g.DrawString("24 h atrás", small, dim, 2, h - small.Height - 1);
+                var now = "agora";
+                g.DrawString(now, small, dim, w - g.MeasureString(now, small).Width - 2, h - small.Height - 1);
+                if (_dayPoints!.Count == 0)
+                {
+                    const string none = "Sem histórico nas últimas 24 h";
+                    g.DrawString(none, small, dim, (w - g.MeasureString(none, small).Width) / 2, h / 2 - small.Height / 2);
+                    return;
+                }
+            }
+            float X(DateTime t) => (float)(Math.Clamp((t - from).TotalMinutes / (24 * 60.0), 0, 1) * w);
+            float Y(double v) => (float)(h - 1 - Math.Clamp((v - _min) / (_max - _min), 0, 1) * (h - 3));
+            using var pen = new Pen(_color, LogicalToDeviceUnits(2));
+            using var fill = new SolidBrush(Color.FromArgb(50, _color));
+            foreach (var seg in HistoryReader.Segments(_dayPoints))
+            {
+                var pts = seg.Select(p => new PointF(X(p.Time), Y(p.Value))).ToArray();
+                if (pts.Length == 1) { g.FillEllipse(fill, pts[0].X - 2, pts[0].Y - 2, 4, 4); continue; }
+                g.FillPolygon(fill, [.. pts, new PointF(pts[^1].X, h), new PointF(pts[0].X, h)]);
+                g.DrawLines(pen, pts);
+            }
+        }
+
         private void DrawGraph(object? sender, PaintEventArgs e)
         {
             var g = e.Graphics;
@@ -293,6 +397,7 @@ internal sealed partial class MainForm : Form
             g.SmoothingMode = SmoothingMode.AntiAlias;
             using (var gridPen = new Pen(Color.FromArgb(55, 55, 62)))
                 foreach (float f in new[] { 0.25f, 0.5f, 0.75f }) g.DrawLine(gridPen, 0, h * f, w, h * f);
+            if (_dayPoints is not null) { DrawDay(g, w, h); return; }
 
             int n = _history.Count;
             if (n < 2) return;

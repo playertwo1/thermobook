@@ -12,6 +12,67 @@ internal readonly record struct HistorySample(double Temp, double Cpu, double Gp
         s.RamTotal > 0 ? s.RamPercent : double.NaN, mode);
 }
 
+/// <summary>Uma linha do histórico lida do CSV. Célula vazia = NaN.</summary>
+internal readonly record struct HistoryPoint(DateTime Time, double Temp, double Cpu, double Gpu, double Ram);
+
+/// <summary>Lê os CSVs do <see cref="HistoryWriter"/> para o gráfico de 24 h. Linha quebrada, arquivo ausente ou em uso são pulados.</summary>
+internal static class HistoryReader
+{
+    private static readonly CultureInfo Pt = CultureInfo.GetCultureInfo("pt-BR");
+
+    /// <summary>Pontos das 24 h até <paramref name="now"/>, em ordem de hora. Pode atravessar dois arquivos.</summary>
+    public static List<HistoryPoint> Last24h(string dir, DateTime now)
+    {
+        var from = now.AddHours(-24);
+        var points = new List<HistoryPoint>();
+        for (var day = from.Date; day <= now.Date; day = day.AddDays(1))
+        {
+            string path = Path.Combine(dir, day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".csv");
+            foreach (var line in ReadLines(path))
+                if (Parse(line) is { } p && p.Time >= from && p.Time <= now) points.Add(p);
+        }
+        points.Sort((a, b) => a.Time.CompareTo(b.Time));
+        return points;
+    }
+
+    private static IEnumerable<string> ReadLines(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return [];
+            using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var r = new StreamReader(file, Encoding.UTF8);
+            var lines = new List<string>();
+            while (r.ReadLine() is { } l) lines.Add(l);
+            return lines;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
+    }
+
+    internal static HistoryPoint? Parse(string line)
+    {
+        var c = line.Split(';');
+        if (c.Length != 7 || !DateTime.TryParseExact(c[0], "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var t)) return null;
+        double N(string s) => double.TryParse(s, NumberStyles.Float, Pt, out var v) ? v : double.NaN;
+        return new(t, N(c[1]), N(c[2]), N(c[3]), N(c[5]));
+    }
+
+    /// <summary>Parte a série onde há buraco (app fechado): linha só liga pontos a até <paramref name="gapMinutes"/> minutos um do outro. NaN sai.</summary>
+    public static List<List<(DateTime Time, double Value)>> Segments(IEnumerable<(DateTime Time, double Value)> series, int gapMinutes = 3)
+    {
+        var result = new List<List<(DateTime, double)>>();
+        DateTime? last = null;
+        foreach (var (time, value) in series)
+        {
+            if (!double.IsFinite(value)) continue;
+            if (last is null || (time - last.Value).TotalMinutes > gapMinutes) result.Add([]);
+            result[^1].Add((time, value));
+            last = time;
+        }
+        return result;
+    }
+}
+
 /// <summary>
 /// Histórico (fase 16): junta as leituras de cada minuto e grava uma linha em <c>AAAA-MM-DD.csv</c> (um arquivo por dia).
 /// Formato para o Excel em português: <c>;</c> entre colunas e vírgula decimal. Temperatura = máxima do minuto; o resto, a média.

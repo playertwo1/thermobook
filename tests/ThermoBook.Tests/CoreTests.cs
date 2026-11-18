@@ -334,6 +334,60 @@ public class MainFormTests
         Assert.Equal(PanelTab.Monitor, form.Tab);
     }
 
+    // ---- gráfico de 24 h (16.2) ----
+
+    private static MainForm PainelComHistorico(Func<DateTime, IReadOnlyList<HistoryPoint>> le, Action? abrir = null) =>
+        new(_ => { }, (_, _) => { }, openFan: null, new Panel(), new Panel(), le, abrir);
+
+    [Fact]
+    public void Abre_ao_vivo_e_alterna_para_24h_lendo_o_historico()
+    {
+        int leituras = 0;
+        using var form = PainelComHistorico(_ => { leituras++; return []; });
+        Assert.False(form.DayMode);
+        Assert.Equal(0, leituras);
+        form.SetDayMode(true);
+        Assert.True(form.DayMode);
+        form.SetDayMode(false);
+        Assert.False(form.DayMode);
+    }
+
+    [Fact]
+    public void Aplicar_o_dia_com_ou_sem_pontos_nao_quebra_e_ao_vivo_ignora()
+    {
+        using var form = PainelComHistorico(_ => []);
+        var agora = new DateTime(2026, 11, 18, 12, 0, 0);
+        form.ApplyDay([new(agora.AddMinutes(-5), 50, 10, 5, 40), new(agora, double.NaN, 11, double.NaN, 41)], agora); // ao vivo: ignora
+        form.SetDayMode(true);
+        form.Show();
+        form.ApplyDay([], agora);
+        form.ApplyDay([new(agora.AddMinutes(-5), 50, 10, 5, 40), new(agora, double.NaN, 11, double.NaN, 41), new(agora.AddHours(-30), 1, 1, 1, 1)], agora);
+    }
+
+    [Fact]
+    public void Pasta_do_historico_abre_pelo_botao()
+    {
+        int abriu = 0;
+        using var form = PainelComHistorico(_ => [], () => abriu++);
+        form.Show(); // PerformClick só age em botão visível
+        var botao = FindButton(form, "Abrir pasta do histórico");
+        botao.PerformClick();
+        Assert.Equal(1, abriu);
+    }
+
+    private static Button FindButton(Control root, string text) =>
+        FindButtonOrNull(root, text) ?? throw new InvalidOperationException(text);
+
+    private static Button? FindButtonOrNull(Control root, string text)
+    {
+        foreach (Control c in root.Controls)
+        {
+            if (c is Button b && b.Text == text) return b;
+            if (FindButtonOrNull(c, text) is { } inner) return inner;
+        }
+        return null;
+    }
+
     private static void SendKeysTo(MainForm form, Keys keys)
     {
         var msg = new Message { HWnd = form.Handle, Msg = 0x0100 /* WM_KEYDOWN */ };
@@ -1642,6 +1696,7 @@ public class ElevatedTaskTests
     }
 }
 
+[Collection("RegistroDeTeste")] // não rodam em paralelo: as duas apagam a chave pai Software\ThermoBook\Teste ao terminar
 public class UninstallTests : IDisposable
 {
     // Chave falsa no lugar de HKCU e HKLM; settings.json numa pasta temporária.
@@ -1850,6 +1905,7 @@ public class CleanupTests
     public void Texto_do_resultado(long bytes, string expected) => Assert.Equal(expected, Cleanup.Describe(bytes));
 }
 
+[Collection("RegistroDeTeste")]
 public class TweaksTests
 {
     // Nunca as chaves reais do Windows: cada teste usa HKCU\Software\ThermoBook\Teste\<guid> como raiz (no lugar de HKCU e HKLM).
@@ -2478,6 +2534,67 @@ public class HistoryWriterTests : IDisposable
 
     [Fact]
     public void Poda_sem_pasta_nao_lanca() => _w.Prune(T);
+
+    // ---- leitura para o gráfico de 24 h (16.2) ----
+
+    [Fact]
+    public void Le_o_que_foi_gravado_atravessando_dois_arquivos_e_so_as_24_horas()
+    {
+        var agora = new DateTime(2026, 11, 19, 0, 30, 0);
+        _w.Add(agora.AddHours(-25), S(40, 1));            // fora da janela
+        _w.Add(agora.AddHours(-24).AddMinutes(1), S(50, 10, 5, 40)); // dentro, no arquivo do dia 18
+        _w.Add(agora.AddMinutes(-31), S(58.5, 30, 10, 60));       // 23:59 do dia 18
+        _w.Add(agora, S(60, 20));                          // dia 19
+        _w.Flush();
+
+        var p = HistoryReader.Last24h(_dir, agora);
+        Assert.Equal(3, p.Count);
+        Assert.Equal(agora.AddHours(-24).AddMinutes(1), p[0].Time);
+        Assert.Equal((50.0, 10.0, 5.0, 40.0), (p[0].Temp, p[0].Cpu, p[0].Gpu, p[0].Ram));
+        Assert.Equal(58.5, p[1].Temp);
+        Assert.Equal(agora, p[2].Time);
+        Assert.True(p.Zip(p.Skip(1)).All(x => x.First.Time < x.Second.Time));
+    }
+
+    [Fact]
+    public void Leitura_sem_pasta_ou_com_linha_quebrada_nao_lanca()
+    {
+        Assert.Empty(HistoryReader.Last24h(_dir, T));
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(_w.PathFor(T), HistoryWriter.Header + "\nlixo\n2026-11-18 11:00;55,5;1;2;;3;Frio\n2026-11-18 xx:00;1;1;1;;1;Frio\n");
+        var p = Assert.Single(HistoryReader.Last24h(_dir, T));
+        Assert.Equal(55.5, p.Temp);
+    }
+
+    [Fact]
+    public void Leitura_funciona_com_o_arquivo_aberto_por_outro_programa()
+    {
+        _w.Add(T.AddMinutes(-5), S(50, 1));
+        _w.Flush();
+        using var aberto = new FileStream(_w.PathFor(T), FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+        Assert.Single(HistoryReader.Last24h(_dir, T));
+    }
+
+    [Fact]
+    public void Celula_vazia_vira_NaN_e_sai_da_linha()
+    {
+        var p = HistoryReader.Parse("2026-11-18 12:00;;15,0;;;;Frio")!.Value;
+        Assert.True(double.IsNaN(p.Temp) && double.IsNaN(p.Gpu) && double.IsNaN(p.Ram));
+        Assert.Equal(15.0, p.Cpu);
+        Assert.Null(HistoryReader.Parse("2026-11-18 12:00;1;2"));
+    }
+
+    [Fact]
+    public void Linha_so_liga_pontos_proximos_e_ignora_NaN()
+    {
+        var t = new DateTime(2026, 11, 18, 10, 0, 0);
+        var seg = HistoryReader.Segments([(t, 1.0), (t.AddMinutes(1), 2), (t.AddMinutes(2), double.NaN), (t.AddMinutes(3), 3),
+            (t.AddMinutes(30), 4), (t.AddMinutes(31), 5)]);
+        Assert.Equal(2, seg.Count);
+        Assert.Equal([1.0, 2, 3], seg[0].Select(x => x.Value));
+        Assert.Equal([4.0, 5], seg[1].Select(x => x.Value));
+        Assert.Empty(HistoryReader.Segments([]));
+    }
 
     [Fact]
     public void Amostra_vem_do_snapshot()
