@@ -1323,3 +1323,88 @@ public class ModeStoreTests
         }
     }
 }
+
+public class ElevatedTaskTests
+{
+    private static readonly string Report = Path.Combine(Path.GetTempPath(), "ThermoBook-teste.json");
+
+    [Theory]
+    [InlineData("limpeza")]
+    [InlineData("otimizacao")]
+    public void Aceita_so_tarefas_conhecidas(string task) =>
+        Assert.Equal(new ElevatedTask.Args(task, Report), ElevatedTask.Parse(["--tarefa", task, "--relatorio", Report]));
+
+    public static TheoryData<string[]> Invalidos => new()
+    {
+        Array.Empty<string>(),
+        new[] { "--tarefa", "limpeza" },
+        new[] { "--tarefa", "formatar", "--relatorio", Report },
+        new[] { "--tarefa", "Limpeza", "--relatorio", Report },
+        new[] { "--relatorio", Report, "--tarefa", "limpeza" },
+        new[] { "--tarefa", "limpeza", "--relatorio", Report, "--extra" },
+        new[] { "--tarefa", "limpeza", "--relatorio", "relatorio.json" },
+        new[] { "--tarefa", "limpeza", "--relatorio", @"C:\Windows\System32\drivers\etc\hosts" },
+        new[] { "--tarefa", "limpeza", "--relatorio", "C:\\x\0.json" },
+    };
+
+    [Theory]
+    [MemberData(nameof(Invalidos))]
+    public void Rejeita_qualquer_outro_argumento(string[] args)
+    {
+        Assert.Null(ElevatedTask.Parse(args));
+        Assert.Equal(2, ElevatedTask.RunElevated(args));
+    }
+
+    [Fact]
+    public void Lado_elevado_nao_sobrescreve_arquivo_existente()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"ThermoBook-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, "original");
+        try
+        {
+            Assert.Equal(3, ElevatedTask.RunElevated(["--tarefa", "limpeza", "--relatorio", path]));
+            Assert.Equal("original", File.ReadAllText(path));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task UAC_cancelado_vira_Cancelado_sem_excecao()
+    {
+        var r = await ElevatedTask.LaunchAsync("limpeza", _ => throw new System.ComponentModel.Win32Exception(1223));
+        Assert.Equal(new TaskReport(TaskOutcome.Cancelled, "Cancelado"), r);
+    }
+
+    [Fact]
+    public async Task Tarefa_desconhecida_nem_pede_UAC()
+    {
+        bool started = false;
+        var r = await ElevatedTask.LaunchAsync("formatar", _ => { started = true; return null; });
+        Assert.False(started);
+        Assert.Equal(TaskOutcome.Failed, r.Outcome);
+    }
+
+    [Fact]
+    public async Task Le_o_relatorio_do_processo_elevado_e_apaga_o_arquivo()
+    {
+        string? report = null;
+        var r = await ElevatedTask.LaunchAsync("limpeza", psi =>
+        {
+            Assert.Equal("runas", psi.Verb);
+            string[] args = [.. psi.ArgumentList];
+            report = args[3];
+            ElevatedTask.RunElevated(args); // faz o papel do processo elevado
+            return System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c exit 0") { CreateNoWindow = true });
+        });
+        Assert.Equal(ElevatedTask.Tasks["limpeza"](), r);
+        Assert.False(File.Exists(report));
+    }
+
+    [Fact]
+    public async Task Processo_sem_relatorio_vira_falha()
+    {
+        var r = await ElevatedTask.LaunchAsync("limpeza", _ =>
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c exit 0") { CreateNoWindow = true }));
+        Assert.Equal(new TaskReport(TaskOutcome.Failed, "A tarefa terminou sem relatório."), r);
+    }
+}
