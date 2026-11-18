@@ -123,11 +123,13 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 **Objetivo:** dá para ver como a temperatura e o uso andaram nas últimas 24 h e abrir os dados no Excel.
 
 ### 16.1 Gravação
-- [ ] `HistoryWriter` lê o `Latest` do `SensorService` (não consulta sensor), junta um minuto e grava uma linha: hora, temperatura máx, CPU, GPU, temperatura da GPU (se houver), RAM, modo.
-- [ ] Um arquivo por dia: `%AppData%\ThermoBook\historico\AAAA-MM-DD.csv`, com `;` e vírgula decimal (abre direto no Excel em português, A6). Gravação fora da thread da interface.
-- [ ] Apaga arquivos com mais de 30 dias (A6). `Settings.History` ligado por padrão, com opção em Configurações.
+- [x] `HistoryWriter` lê o `Latest` do `SensorService` (não consulta sensor), junta um minuto e grava uma linha: hora, temperatura máx, CPU, GPU, temperatura da GPU (se houver), RAM, modo.
+- [x] Um arquivo por dia: `%AppData%\ThermoBook\historico\AAAA-MM-DD.csv`, com `;` e vírgula decimal (abre direto no Excel em português, A6). Gravação fora da thread da interface.
+- [x] Apaga arquivos com mais de 30 dias (A6). `Settings.History` ligado por padrão, com opção em Configurações.
 
 **Pronto quando:** testes cobrem a média do minuto, a virada do dia (linha no arquivo certo), a limpeza dos antigos e o formato da linha.
+
+> Feito na 16.1: `Services/HistoryWriter.cs`. Colunas: `hora;temperatura_c;cpu_pct;gpu_pct;gpu_temperatura_c;ram_pct;modo` (a da GPU NVIDIA já existe, vazia até a fase 15). Temperatura = máxima do minuto; CPU, GPU e RAM = média; valor ausente = célula vazia e não entra na média. UTF-8 com BOM (acentos no Excel), `;` e vírgula decimal. Arquivo `historico\AAAA-MM-DD.csv`; a linha vai para o arquivo do dia do seu minuto. Arquivo aberto no Excel não perde linha: ela fica guardada (até 1 dia) e vai na próxima tentativa. A poda só apaga `AAAA-MM-DD.csv` com data válida mais de 30 dias atrás (a de exatamente 30 fica). No `TrayApp`, um `System.Threading.Timer` de 1 s lê `Latest` e o nome do modo (volátil, atualizado pelo `ModeStore`) e grava fora da thread da interface; poda uma vez por dia; `Flush` ao sair. `Settings.History` (ligado) com caixa em Configurações. 331 testes. **Falta verificar rodando o app por alguns minutos:** o arquivo aparecendo, abrindo no Excel com as colunas certas, e o app aberto durante a virada do dia.
 
 ### 16.2 Gráfico de 24 h
 - [ ] Aba Monitor: alternar "Ao vivo / 24 h"; o modo 24 h lê os CSVs das últimas 24 h numa thread de fundo e reaproveita o `Graph` que já existe.

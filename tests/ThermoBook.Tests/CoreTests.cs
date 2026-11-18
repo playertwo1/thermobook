@@ -2366,6 +2366,140 @@ public class ScheduledCleanupTests
     }
 }
 
+public class HistoryWriterTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "thermobook-tests", "hist-" + Guid.NewGuid().ToString("N"));
+    private readonly HistoryWriter _w;
+    public HistoryWriterTests() => _w = new HistoryWriter(_dir);
+    public void Dispose() { if (Directory.Exists(_dir)) Directory.Delete(_dir, true); }
+
+    private static readonly DateTime T = new(2026, 11, 18, 12, 0, 0);
+    private static HistorySample S(double temp, double cpu, double gpu = 0, double ram = 50, string modo = "Equilibrado") =>
+        new(temp, cpu, gpu, double.NaN, ram, modo);
+
+    private string[] Lines(DateTime day) => File.ReadAllLines(_w.PathFor(day));
+
+    [Fact]
+    public void Grava_uma_linha_por_minuto_com_temperatura_maxima_e_media_do_resto()
+    {
+        _w.Add(T.AddSeconds(1), S(50, 10, 0, 40));
+        _w.Add(T.AddSeconds(2), S(58.5, 30, 10, 60));
+        Assert.False(File.Exists(_w.PathFor(T))); // minuto ainda aberto
+        _w.Add(T.AddMinutes(1), S(40, 0));         // minuto novo fecha o anterior
+
+        var l = Lines(T);
+        Assert.Equal(HistoryWriter.Header, l[0]);
+        Assert.Equal("2026-11-18 12:00;58,5;20,0;5,0;;50,0;Equilibrado", l[1]);
+        Assert.Equal(2, l.Length);
+    }
+
+    [Fact]
+    public void Flush_grava_o_minuto_em_andamento()
+    {
+        _w.Add(T, S(61, 5));
+        _w.Flush();
+        Assert.Equal("2026-11-18 12:00;61,0;5,0;0,0;;50,0;Equilibrado", Lines(T)[1]);
+    }
+
+    [Fact]
+    public void Virada_do_dia_vai_para_o_arquivo_do_dia_certo()
+    {
+        var meiaNoite = new DateTime(2026, 11, 18, 23, 59, 30);
+        _w.Add(meiaNoite, S(50, 1));
+        _w.Add(meiaNoite.AddSeconds(45), S(51, 2)); // 00:00 do dia 19
+        _w.Flush();
+        Assert.Equal("2026-11-18 23:59;50,0;1,0;0,0;;50,0;Equilibrado", Assert.Single(Lines(meiaNoite).Skip(1)));
+        Assert.Equal("2026-11-19 00:00;51,0;2,0;0,0;;50,0;Equilibrado", Assert.Single(Lines(meiaNoite.AddDays(1)).Skip(1)));
+    }
+
+    [Fact]
+    public void Valores_ausentes_viram_celula_vazia_e_nao_entram_na_media()
+    {
+        _w.Add(T, new(double.NaN, 10, double.NaN, double.NaN, double.NaN, "Frio"));
+        _w.Add(T.AddSeconds(1), new(double.NaN, 20, double.NaN, double.NaN, double.NaN, "Frio"));
+        _w.Flush();
+        Assert.Equal("2026-11-18 12:00;;15,0;;;;Frio", Lines(T)[1]);
+    }
+
+    [Fact]
+    public void Nome_do_modo_nao_quebra_o_csv()
+    {
+        _w.Add(T, S(50, 1, modo: "a;b\nc"));
+        _w.Flush();
+        Assert.Equal(7, Lines(T)[1].Split(';').Length);
+    }
+
+    [Fact]
+    public void Segunda_sessao_no_mesmo_dia_acrescenta_sem_repetir_o_cabecalho()
+    {
+        _w.Add(T, S(50, 1));
+        _w.Flush();
+        var outra = new HistoryWriter(_dir);
+        outra.Add(T.AddMinutes(5), S(52, 2));
+        outra.Flush();
+        var l = Lines(T);
+        Assert.Equal(3, l.Length);
+        Assert.Single(l, x => x == HistoryWriter.Header);
+    }
+
+    [Fact]
+    public void Arquivo_aberto_em_outro_programa_nao_perde_a_linha()
+    {
+        _w.Add(T, S(50, 1));
+        _w.Flush();
+        string path = _w.PathFor(T);
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None)) // como o Excel
+        {
+            _w.Add(T.AddMinutes(1), S(55, 2));
+            _w.Flush(); // falha em silêncio e guarda
+        }
+        _w.Add(T.AddMinutes(2), S(56, 3)); // próxima chance: grava o que ficou
+        _w.Flush();
+        var l = Lines(T);
+        Assert.Contains(l, x => x.StartsWith("2026-11-18 12:01;55,0"));
+        Assert.Contains(l, x => x.StartsWith("2026-11-18 12:02;56,0"));
+    }
+
+    [Fact]
+    public void Apaga_so_csv_de_data_com_mais_de_30_dias()
+    {
+        Directory.CreateDirectory(_dir);
+        string Make(string name) { var p = Path.Combine(_dir, name); File.WriteAllText(p, "x"); return p; }
+        var velho = Make("2026-10-18.csv");      // 31 dias
+        var limite = Make("2026-10-19.csv");     // 30 dias: fica
+        var novo = Make("2026-11-18.csv");
+        var alheio = Make("anotacoes.csv");
+        var alheio2 = Make("2020-01-01.txt");
+        var falso = Make("2026-13-45.csv");      // data impossível: não é nosso
+        _w.Prune(new DateTime(2026, 11, 18, 8, 0, 0));
+        Assert.False(File.Exists(velho));
+        Assert.True(File.Exists(limite) && File.Exists(novo) && File.Exists(alheio) && File.Exists(alheio2) && File.Exists(falso));
+    }
+
+    [Fact]
+    public void Poda_sem_pasta_nao_lanca() => _w.Prune(T);
+
+    [Fact]
+    public void Amostra_vem_do_snapshot()
+    {
+        var snap = new Snapshot(12, 2, 100, 30, 0, 0, 0, 4e9, 8e9, 0, 0, 0, 0, [50, 61]);
+        var a = HistorySample.From(snap, "Frio");
+        Assert.Equal((61.0, 12.0, 30.0, 50.0, "Frio"), (a.Temp, a.Cpu, a.Gpu, a.Ram, a.Mode));
+        Assert.True(double.IsNaN(HistorySample.From(snap with { Temps = [] }, "x").Temp));
+        Assert.True(double.IsNaN(HistorySample.From(snap with { RamTotal = 0 }, "x").Ram));
+    }
+
+    [Fact]
+    public void Historico_vem_ligado_por_padrao_e_settings_antigo_carrega()
+    {
+        Assert.True(new Settings().History);
+        var path = Path.Combine(Path.GetTempPath(), "thermobook-tests", Guid.NewGuid() + ".json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "Profile": "Frio" }""");
+        Assert.True(new SettingsStore(path).Load().History);
+    }
+}
+
 public class AutoModeTests
 {
     private static readonly AutoRules Regras = new(Enabled: true, OnBattery: "Economia", OnAc: "Equilibrado",

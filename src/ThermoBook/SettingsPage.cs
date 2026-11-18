@@ -12,7 +12,7 @@ internal sealed class SettingsPage : UserControl
     private Settings _shown = new();
     private bool _syncing;
 
-    internal readonly CheckBox Pill, Startup, AutoCool, AutoOn;
+    internal readonly CheckBox Pill, Startup, AutoCool, AutoOn, History;
     internal readonly ComboBox OnBattery, OnAc, ProgramName, ProgramMode;
     internal readonly ListBox Programs;
     internal readonly Button ProgramAdd, ProgramRemove;
@@ -81,6 +81,12 @@ internal sealed class SettingsPage : UserControl
         list.Controls.Add(Row(ProgramName, Caption("→"), ProgramMode, ProgramAdd, ProgramRemove));
         list.Controls.Add(Theme.Note("Programa aberto vence tomada/bateria; o primeiro da lista vale. Escreva o nome do .exe ou abra a lista para escolher um processo aberto. Trocar o modo à mão vale até as regras pedirem outro."));
 
+        list.Controls.Add(Theme.Header("Histórico"));
+        History = Check("Gravar o histórico (um minuto por linha, 30 dias)");
+        History.CheckedChanged += (_, _) => Change(s => s with { History = History.Checked });
+        list.Controls.Add(History);
+        list.Controls.Add(Theme.Note("Arquivos CSV em %AppData%\\ThermoBook\\historico, um por dia. Abrem direto no Excel."));
+
         list.Controls.Add(Theme.Header("Inicialização"));
         Startup = Check("Iniciar com o Windows");
         Startup.CheckedChanged += (_, _) => { if (!_syncing) setStartup(Startup.Checked); };
@@ -99,6 +105,7 @@ internal sealed class SettingsPage : UserControl
             _shown = s;
             Pill.Checked = s.ShowPill;
             AutoCool.Checked = s.AutoCool;
+            History.Checked = s.History;
             Startup.Checked = startup;
             var rules = s.Auto ?? AutoRules.Default;
             AutoOn.Checked = rules.Enabled;

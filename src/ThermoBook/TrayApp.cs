@@ -38,6 +38,10 @@ internal sealed class TrayApp : ApplicationContext
     private bool _alertBalloonShown; // o clique no balão só troca de perfil se o balão for o do alerta
     private readonly AutoMode _auto = new();
     private readonly System.Threading.Timer _processTimer;
+    private readonly HistoryWriter _history = new(HistoryWriter.DefaultDir);
+    private readonly System.Threading.Timer _historyTimer;
+    private volatile string _modeName = "";
+    private DateTime _pruned;
     private volatile string[] _running = []; // nomes dos processos abertos, lidos a cada 5 s fora da thread da interface
 
     public TrayApp(SettingsStore store, WaitHandle openPanelSignal, bool showPanel)
@@ -128,6 +132,7 @@ internal sealed class TrayApp : ApplicationContext
         RefreshPowerState(syncControls: true);
         UpdatePillVisibility();
         _processTimer = new System.Threading.Timer(_ => PollProcesses(), null, 0, 5000);
+        _historyTimer = new System.Threading.Timer(_ => RecordHistory(), null, 1000, 1000);
         _timer.Tick += (_, _) => OnTick();
         _timer.Start();
         if (showPanel) ShowPanel();
@@ -286,9 +291,23 @@ internal sealed class TrayApp : ApplicationContext
         _profileLabel = (s.Mode?.Name ?? $"Personalizado (turbo {PowerService.TurboNames.GetValueOrDefault(s.Turbo, s.Turbo.ToString())}, {s.Limit}%)")
             + (s.Auto ? " · automático" : "");
         _turbo = s.Turbo;
+        _modeName = s.Mode?.Name ?? "Personalizado";
         _panel.ShowPower(s.Turbo, s.Limit, s.Mode, syncControls: false);
         _pill.SetMode(s.Mode, s.Background, s.Auto);
         _quick.SetState(s.Mode, s.Background, s.Auto);
+    }
+
+    /// <summary>Thread do timer (nunca a da interface): soma a última leitura ao minuto e grava quando ele fecha.</summary>
+    private void RecordHistory()
+    {
+        try
+        {
+            if (!_settings.History || _sensors.Latest is not { } s) return;
+            var now = DateTime.Now;
+            if (_pruned != now.Date) { _pruned = now.Date; _history.Prune(now); }
+            _history.Add(now, HistorySample.From(s, _modeName));
+        }
+        catch (Exception ex) { Debug.WriteLine(ex); } // exceção no timer derrubaria o app
     }
 
     /// <summary>Thread do timer: só lista processos se alguma regra de programa estiver valendo.</summary>
@@ -397,6 +416,8 @@ internal sealed class TrayApp : ApplicationContext
     {
         _timer.Stop();
         _processTimer.Dispose();
+        _historyTimer.Dispose();
+        _history.Flush(); // o minuto em andamento não se perde ao sair
         _planWatcher.Dispose();
         _hotkeyWindow.Dispose();
         _openPanelWait.Unregister(null);
