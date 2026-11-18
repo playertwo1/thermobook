@@ -9,7 +9,7 @@ internal sealed record Snapshot(
     double Gpu, double Gpu3D, double GpuVideo, double GpuMem,
     double RamUsed, double RamTotal,
     double DiskActive, double DiskRead, double DiskWrite, double CFree,
-    double[] Temps)
+    double[] Temps, double? GpuTemp = null)
 {
     public double TempMax => Temps.Length > 0 ? Temps.Max() : 0;
     public double RamPercent => RamTotal > 0 ? RamUsed / RamTotal * 100 : 0;
@@ -26,6 +26,7 @@ internal sealed class SensorService : IDisposable
     private readonly Thread _thread;
     private volatile bool _stop;
     private volatile Snapshot? _latest;
+    private readonly NvidiaSensor _nvidia = new();
 
     public Snapshot? Latest => _latest;
     public string? LastError { get; private set; }
@@ -42,7 +43,7 @@ internal sealed class SensorService : IDisposable
         {
             try
             {
-                _latest = Read();
+                _latest = Read() with { GpuTemp = _nvidia.Read() }; // NVML só nesta thread
                 LastError = null;
             }
             catch (Exception ex)
@@ -110,7 +111,12 @@ internal sealed class SensorService : IDisposable
 
     private static double D(object? v) => v is null ? 0 : Convert.ToDouble(v);
 
-    public void Dispose() => _stop = true;
+    public void Dispose()
+    {
+        _stop = true;
+        _thread.Join(2000); // a NVML só pode ser fechada depois que a thread de leitura parar
+        _nvidia.Dispose();
+    }
 }
 
 /// <summary>Uso da GPU como no Gerenciador de Tarefas: soma por motor, máximo por tipo.</summary>

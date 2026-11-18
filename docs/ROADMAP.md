@@ -105,10 +105,12 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 **Objetivo:** com placa NVIDIA, a temperatura da GPU aparece junto do uso. Sem NVIDIA, nada muda.
 
 ### 15.1 Leitura
-- [ ] Ler pela NVML (`nvml.dll`, que vem com o driver NVIDIA) com `LibraryImport` e `NativeLibrary.TryLoad`, em vez de rodar o `nvidia-smi` a cada leitura (A4: regra do AGENTS, sem processo para o que tem API).
-- [ ] Só na thread de fundo do `SensorService`; `Snapshot` ganha `GpuTemp` (nulo sem NVIDIA ou se a NVML falhar). Falha na NVML não derruba as outras leituras.
+- [x] Ler pela NVML (`nvml.dll`, que vem com o driver NVIDIA) com `LibraryImport` e `NativeLibrary.TryLoad`, em vez de rodar o `nvidia-smi` a cada leitura (A4: regra do AGENTS, sem processo para o que tem API).
+- [x] Só na thread de fundo do `SensorService`; `Snapshot` ganha `GpuTemp` (nulo sem NVIDIA ou se a NVML falhar). Falha na NVML não derruba as outras leituras.
 
 **Pronto quando:** teste com leitor falso cobre sem NVIDIA (nulo), com uma placa, com duas (vale a mais quente) e erro da NVML.
+
+> Feito na 15.1 (marcado só nos testes; **a NVML de verdade não foi exercida**: este notebook é Intel Arc e não tem `nvml.dll`): `Services/NvidiaSensor.cs` — `NvidiaSensor` (lógica) sobre `INvmlApi`, com `NvmlApi` ligando `nvmlInit_v2`, `nvmlDeviceGetCount_v2`, `nvmlDeviceGetHandleByIndex_v2`, `nvmlDeviceGetTemperature` e `nvmlShutdown` por ponteiro (sem dependência nova). A biblioteca só é carregada de `System32` ou de `Arquivos de Programas\NVIDIA Corporation\NVSMI`, nunca do PATH. Sem driver ou com `Init` falhando, desliga e não procura de novo; erro de contagem é passageiro (tenta na próxima); placa com erro ou leitura fora de 1–149 °C é pulada; várias placas = a mais quente; exceção de biblioteca vira nulo e desliga. `Snapshot.GpuTemp` (`double?`, padrão nulo) é preenchido na thread de fundo do `SensorService`, que agora espera a thread parar (até 2 s) antes de fechar a NVML. 400 testes, incluindo um que roda o caminho real aqui (devolve nulo). **Falta verificar numa máquina com NVIDIA:** que os 5 pontos de entrada e as assinaturas respondem e que o valor bate com `nvidia-smi --query-gpu=temperature.gpu --format=csv`. Nada mostra a temperatura ainda (15.2).
 
 ### 15.2 Mostrar
 - [ ] Flyout, cartão da GPU na aba Monitor, `--diagnostico` e o CSV da fase 16 mostram a temperatura da GPU.

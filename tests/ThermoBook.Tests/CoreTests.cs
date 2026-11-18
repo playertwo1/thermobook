@@ -2604,6 +2604,128 @@ public class UpdateServiceTests
     }
 }
 
+public class NvidiaSensorTests
+{
+    private sealed class FakeNvml(int init = 0, int count = 0, params (int Code, uint Celsius)[] gpus) : INvmlApi
+    {
+        public int Inits, Disposed, CountCalls;
+        public Exception? Throw;
+        public int Init() { Inits++; return init; }
+        public int DeviceCount(out uint c)
+        {
+            CountCalls++;
+            if (Throw is not null) throw Throw;
+            c = (uint)gpus.Length;
+            return count;
+        }
+        public int Temperature(uint i, out uint celsius) { (int code, celsius) = gpus[i]; return code; }
+        public void Dispose() => Disposed++;
+    }
+
+    [Fact]
+    public void Sem_driver_NVIDIA_e_nulo_e_nao_procura_de_novo()
+    {
+        int tentativas = 0;
+        using var s = new NvidiaSensor(() => { tentativas++; return null; });
+        Assert.Null(s.Read());
+        Assert.Null(s.Read());
+        Assert.Equal(1, tentativas);
+    }
+
+    [Fact]
+    public void Uma_placa_devolve_a_temperatura()
+    {
+        var api = new FakeNvml(gpus: [(0, 67u)]);
+        using var s = new NvidiaSensor(() => api);
+        Assert.Equal(67.0, s.Read());
+        Assert.Equal(67.0, s.Read());
+        Assert.Equal(1, api.Inits); // inicia uma vez só
+    }
+
+    [Fact]
+    public void Duas_placas_vale_a_mais_quente()
+    {
+        using var s = new NvidiaSensor(() => new FakeNvml(gpus: [(0, 48u), (0, 71u)]));
+        Assert.Equal(71.0, s.Read());
+    }
+
+    [Fact]
+    public void Placa_com_erro_ou_leitura_absurda_e_pulada()
+    {
+        using var s = new NvidiaSensor(() => new FakeNvml(gpus: [(15, 99u), (0, 0u), (0, 300u), (0, 55u)]));
+        Assert.Equal(55.0, s.Read());
+        using var so_erro = new NvidiaSensor(() => new FakeNvml(gpus: [(15, 0u)]));
+        Assert.Null(so_erro.Read());
+    }
+
+    [Fact]
+    public void Zero_placas_e_nulo()
+    {
+        using var s = new NvidiaSensor(() => new FakeNvml());
+        Assert.Null(s.Read());
+    }
+
+    [Fact]
+    public void Erro_da_NVML_na_contagem_e_nulo_mas_tenta_de_novo()
+    {
+        var api = new FakeNvml(count: 999, gpus: [(0, 60u)]);
+        using var s = new NvidiaSensor(() => api);
+        Assert.Null(s.Read());
+        Assert.Null(s.Read());
+        Assert.Equal(2, api.CountCalls); // erro passageiro não desliga a leitura
+    }
+
+    [Fact]
+    public void Falha_ao_iniciar_a_NVML_desliga_e_libera()
+    {
+        var api = new FakeNvml(init: 9);
+        using var s = new NvidiaSensor(() => api);
+        Assert.Null(s.Read());
+        Assert.Null(s.Read());
+        Assert.Equal(1, api.Inits);
+        Assert.Equal(1, api.Disposed);
+    }
+
+    [Fact]
+    public void Excecao_da_biblioteca_nunca_sobe_e_desliga_a_leitura()
+    {
+        var api = new FakeNvml(gpus: [(0, 60u)]) { Throw = new EntryPointNotFoundException() };
+        using var s = new NvidiaSensor(() => api);
+        Assert.Null(s.Read());
+        api.Throw = null;
+        Assert.Null(s.Read()); // desligada: não volta a chamar a biblioteca
+        Assert.Equal(1, api.CountCalls);
+    }
+
+    [Fact]
+    public void Dispose_fecha_a_NVML_uma_vez()
+    {
+        var api = new FakeNvml(gpus: [(0, 60u)]);
+        var s = new NvidiaSensor(() => api);
+        s.Read();
+        s.Dispose();
+        s.Dispose();
+        Assert.Equal(1, api.Disposed);
+    }
+
+    [Fact]
+    public void Snapshot_aceita_temperatura_da_GPU_opcional()
+    {
+        var snap = new Snapshot(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, [50]);
+        Assert.Null(snap.GpuTemp);
+        Assert.Equal(66.0, (snap with { GpuTemp = 66 }).GpuTemp);
+    }
+
+    [Fact]
+    public void NVML_real_nao_lanca_nesta_maquina()
+    {
+        // Sem placa NVIDIA (este notebook é Intel Arc) o resultado é null; com ela, uma temperatura plausível.
+        using var s = new NvidiaSensor();
+        var t = s.Read();
+        Assert.True(t is null or (> 0 and < 150));
+    }
+}
+
 public class UpdateInstallerTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "thermobook-tests", "upd-" + Guid.NewGuid().ToString("N"));
