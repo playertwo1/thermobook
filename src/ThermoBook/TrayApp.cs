@@ -12,8 +12,10 @@ internal sealed class TrayApp : ApplicationContext
     private Settings _settings;
     private readonly SensorService _sensors = new();
     private readonly StartupService _startup = new();
-    private readonly TempAlert _alert;
+    private TempAlert _alert;
     private readonly MainForm _panel;
+    private readonly SettingsPage _settingsPage;
+    private readonly ToolStripMenuItem _pillItem, _startupItem, _autoCoolItem;
     private readonly RegisteredWaitHandle _openPanelWait;
     private readonly NotifyIcon _tray;
     private readonly ContextMenuStrip _menu = new();
@@ -34,8 +36,6 @@ internal sealed class TrayApp : ApplicationContext
     private uint? _turbo;
     private int _ticks;
     private bool _alertBalloonShown; // o clique no balão só troca de perfil se o balão for o do alerta
-    private bool _toolRunning;
-    private OptimizeForm? _optimize;
 
     public TrayApp(SettingsStore store, WaitHandle openPanelSignal, bool showPanel)
     {
@@ -46,10 +46,12 @@ internal sealed class TrayApp : ApplicationContext
         Action? openFan = Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Packages", SamsungSettingsPackage))
             ? () => Process.Start("explorer.exe", $@"shell:AppsFolder\{SamsungSettingsPackage}!App")
             : null;
-        _panel = new MainForm(m => ApplyMode(m), (turbo, limit) => ApplyPower(turbo, limit), openFan);
+        var tools = new ToolsPage(new(_settings.TweakBackup ?? []), b => SaveSettings(_settings with { TweakBackup = b }));
+        _settingsPage = new SettingsPage(ChangeSettings, SetStartup);
+        _panel = new MainForm(m => ApplyMode(m), (turbo, limit) => ApplyPower(turbo, limit), openFan, tools, _settingsPage);
         _ = _panel.Handle; // cria a janela (escondida) para o BeginInvoke do sinal de outra instância
         _openPanelWait = ThreadPool.RegisterWaitForSingleObject(openPanelSignal,
-            (_, _) => _panel.BeginInvoke(new Action(ShowPanel)), null, Timeout.Infinite, executeOnlyOnce: false);
+            (_, _) => _panel.BeginInvoke(() => ShowPanel()), null, Timeout.Infinite, executeOnlyOnce: false);
 
         _status = new ToolStripMenuItem("Lendo sensores...") { Enabled = false };
         _menu.Items.Add(_status);
@@ -65,30 +67,17 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(new ToolStripMenuItem("Desligar a tela", null, (_, _) => DisplayService.TurnOff())
             { ToolTipText = "Desliga o monitor sem suspender o PC. Mexer o mouse religa." });
-        _menu.Items.Add(new ToolStripMenuItem("Limpar temporários (administrador)...", null, (_, _) => RunTool("limpeza"))
-            { ToolTipText = "Apaga temporários, relatórios de erro e cache do Windows Update. Pede permissão de administrador." });
-        _menu.Items.Add(new ToolStripMenuItem("Limpar e esvaziar a Lixeira...", null, (_, _) =>
-        {
-            var ok = MessageBox.Show("Isto também esvazia a Lixeira de todas as unidades. Não tem volta. Continuar?",
-                "ThermoBook", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
-            if (ok == DialogResult.OK) RunTool("limpeza-lixeira");
-        }));
-        _menu.Items.Add(new ToolStripMenuItem("Otimizar o Windows...", null, (_, _) => ShowOptimize())
-            { ToolTipText = "Privacidade, desempenho, TRIM e apps pré-instalados. Os ajustes de registro têm Desfazer." });
+        _menu.Items.Add(new ToolStripMenuItem("Ferramentas...", null, (_, _) => ShowPanel(PanelTab.Tools))
+            { ToolTipText = "Limpeza e otimização do Windows (abre o painel na aba Ferramentas)." });
         _flyout = new PillFlyout(_pill);
-        _quick = new QuickPanel(m => ApplyMode(m), ToggleBackground, DisplayService.TurnOff, ShowPanel);
+        _quick = new QuickPanel(m => ApplyMode(m), ToggleBackground, DisplayService.TurnOff, () => ShowPanel(), () => ShowPanel(PanelTab.Tools));
         _pill.Clicked += ToggleQuickPanel;
         _pill.Restore(_settings.PillMonitor, _settings.PillPositions);
         _pill.PlacementChanged += (key, pos) =>
             SaveSettings(_settings with { PillMonitor = key, PillPositions = new(_settings.PillPositions ?? []) { [key] = pos } });
-        // Provisório da 9.1 (a 9.4 cuida de mostrar/ocultar e lembrar a escolha).
-        var pillItem = new ToolStripMenuItem("Mostrar pílula") { CheckOnClick = true, Checked = _settings.ShowPill };
-        pillItem.Click += (_, _) =>
-        {
-            SaveSettings(_settings with { ShowPill = pillItem.Checked });
-            UpdatePillVisibility();
-        };
-        _menu.Items.Add(pillItem);
+        _pillItem = new ToolStripMenuItem("Mostrar pílula") { CheckOnClick = true };
+        _pillItem.Click += (_, _) => ChangeSettings(s => s with { ShowPill = _pillItem.Checked });
+        _menu.Items.Add(_pillItem);
         _pill.ContextMenuStrip = _menu; // botão direito na pílula abre o mesmo menu da bandeja
         _background = new ToolStripMenuItem("Modo segundo plano", null, (_, _) => ToggleBackground())
         {
@@ -99,22 +88,14 @@ internal sealed class TrayApp : ApplicationContext
         if (openFan is not null)
             _menu.Items.Add("Ventoinha (Configurações Samsung)...", null, (_, _) => openFan());
 
-        var startup = new ToolStripMenuItem("Iniciar com o Windows") { CheckOnClick = true, Checked = _startup.IsEnabled };
-        startup.Click += (_, _) =>
-        {
-            try { _startup.Set(startup.Checked, Environment.ProcessPath!); }
-            catch (Exception ex) { ShowError($"Não consegui mudar a inicialização: {ex.Message}"); }
-            startup.Checked = _startup.IsEnabled;
-        };
-        _menu.Items.Add(startup);
+        _startupItem = new ToolStripMenuItem("Iniciar com o Windows") { CheckOnClick = true };
+        _startupItem.Click += (_, _) => SetStartup(_startupItem.Checked);
+        _menu.Items.Add(_startupItem);
 
-        var autoCool = new ToolStripMenuItem($"Trocar para Frio acima de {_settings.AlertCelsius:0} °C")
-        {
-            CheckOnClick = true, Checked = _settings.AutoCool,
-            ToolTipText = $"Quando passar de {_settings.AlertCelsius:0} °C por {_settings.AlertSeconds} s, desliga o turbo sozinho.",
-        };
-        autoCool.Click += (_, _) => SaveSettings(_settings with { AutoCool = autoCool.Checked });
-        _menu.Items.Add(autoCool);
+        _autoCoolItem = new ToolStripMenuItem { CheckOnClick = true };
+        _autoCoolItem.Click += (_, _) => ChangeSettings(s => s with { AutoCool = _autoCoolItem.Checked });
+        _menu.Items.Add(_autoCoolItem);
+        SyncSettingsViews();
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add("Sair", null, (_, _) => ExitThread());
         _menu.ShowItemToolTips = true;
@@ -135,7 +116,7 @@ internal sealed class TrayApp : ApplicationContext
         if (BackgroundMode.IsOn(_settings)) ApplyBackground(); // continua ligado depois de fechar o app ou reiniciar o PC
         _planWatcher = new PlanWatcher(OnPlanChanged);
         _hotkeyWindow = new HotkeyWindow(DisplayService.TurnOff);
-        if (!string.IsNullOrWhiteSpace(_settings.Hotkey) && !_hotkeyWindow.Register(_settings.Hotkey))
+        if (!_hotkeyWindow.Register(_settings.Hotkey))
             ShowError($"Não consegui registrar o atalho {_settings.Hotkey} (já em uso ou inválido). O ThermoBook segue sem ele.");
         RefreshPowerState(syncControls: true);
         UpdatePillVisibility();
@@ -148,8 +129,10 @@ internal sealed class TrayApp : ApplicationContext
 
     private static PowerMode Cold => PowerService.ModeByName("Frio")!;
 
-    private void ShowPanel()
+    /// <param name="tab">null mantém a aba em que o painel estava.</param>
+    private void ShowPanel(PanelTab? tab = null)
     {
+        if (tab is { } t) _panel.ShowTab(t);
         RefreshPowerState(syncControls: true);
         _panel.Show();
         if (_panel.WindowState == FormWindowState.Minimized) _panel.WindowState = FormWindowState.Normal;
@@ -220,6 +203,44 @@ internal sealed class TrayApp : ApplicationContext
         RefreshPowerState(syncControls: true);
         UpdateIcon(force: true);
         return ok;
+    }
+
+    /// <summary>Única porta para mudar configurações (aba Configurações e menu da bandeja). Devolve o erro para mostrar, ou null.</summary>
+    private string? ChangeSettings(Func<Settings, Settings> edit)
+    {
+        var next = edit(_settings);
+        string? error = null;
+        if (next.Hotkey != _settings.Hotkey && !_hotkeyWindow.Register(next.Hotkey))
+        {
+            error = $"Não consegui registrar {next.Hotkey} (já em uso por outro programa). Ficou o atalho anterior.";
+            _hotkeyWindow.Register(_settings.Hotkey);
+            next = next with { Hotkey = _settings.Hotkey };
+        }
+        if (next.AlertCelsius != _settings.AlertCelsius || next.AlertSeconds != _settings.AlertSeconds)
+            _alert = new TempAlert(next.AlertCelsius, TimeSpan.FromSeconds(next.AlertSeconds));
+        SaveSettings(next);
+        UpdatePillVisibility();
+        SyncSettingsViews();
+        return error;
+    }
+
+    private void SetStartup(bool on)
+    {
+        try { _startup.Set(on, Environment.ProcessPath!); }
+        catch (Exception ex) { ShowError($"Não consegui mudar a inicialização: {ex.Message}"); }
+        SyncSettingsViews();
+    }
+
+    /// <summary>Menu da bandeja e aba Configurações mostram o que está salvo.</summary>
+    private void SyncSettingsViews()
+    {
+        bool startup = _startup.IsEnabled;
+        _pillItem.Checked = _settings.ShowPill;
+        _startupItem.Checked = startup;
+        _autoCoolItem.Checked = _settings.AutoCool;
+        _autoCoolItem.Text = $"Trocar para Frio acima de {_settings.AlertCelsius:0} °C";
+        _autoCoolItem.ToolTipText = $"Quando passar de {_settings.AlertCelsius:0} °C por {_settings.AlertSeconds} s, desliga o turbo sozinho.";
+        _settingsPage.Show(_settings, startup);
     }
 
     private void SaveSettings(Settings settings)
@@ -330,28 +351,6 @@ internal sealed class TrayApp : ApplicationContext
         _tray.Text = tip.Length > 127 ? tip[..127] : tip; // limite do Windows para o tooltip
     }
 
-    /// <summary>Roda uma tarefa da fase 11 num processo elevado (UAC) e avisa o resultado. Os botões que chamam isto chegam na 11.2/11.3.</summary>
-    internal async void RunTool(string task)
-    {
-        if (_toolRunning) return; // um UAC por vez
-        _toolRunning = true;
-        try
-        {
-            var r = await ElevatedTask.LaunchAsync(task); // não lança: erro e UAC cancelado viram relatório
-            _alertBalloonShown = false;
-            _tray.ShowBalloonTip(5000, "ThermoBook", r.Message, r.Outcome == TaskOutcome.Failed ? ToolTipIcon.Error : ToolTipIcon.Info);
-        }
-        finally { _toolRunning = false; }
-    }
-
-    private void ShowOptimize()
-    {
-        if (_optimize is null || _optimize.IsDisposed)
-            _optimize = new OptimizeForm(new(_settings.TweakBackup ?? []), b => SaveSettings(_settings with { TweakBackup = b }));
-        _optimize.Show();
-        _optimize.Activate();
-    }
-
     private void ShowError(string message)
     {
         _alertBalloonShown = false;
@@ -367,7 +366,6 @@ internal sealed class TrayApp : ApplicationContext
         _tray.Visible = false;
         _tray.Dispose();
         _panel.Dispose();
-        _optimize?.Dispose();
         _quick.Dispose();
         _flyout.Dispose();
         _pill.Dispose();
@@ -422,7 +420,13 @@ internal sealed class TrayApp : ApplicationContext
             CreateHandle(new CreateParams());
         }
 
-        public bool Register(string text) => _registered = HotkeyService.Register(Handle, Id, text);
+        /// <summary>Troca o atalho (solta o anterior). Vazio só solta e conta como sucesso.</summary>
+        public bool Register(string text)
+        {
+            if (_registered) HotkeyService.Unregister(Handle, Id);
+            _registered = false;
+            return string.IsNullOrWhiteSpace(text) || (_registered = HotkeyService.Register(Handle, Id, text));
+        }
 
         protected override void WndProc(ref Message m)
         {

@@ -22,7 +22,11 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | `src/ThermoBook/Program.cs` | Entrada: instância única, `--diagnostico`, inicia o `TrayApp`. |
 | `src/ThermoBook/TrayApp.cs` | Ícone da bandeja, menu, ciclo de vida, aplica perfil. Ponto central de estado. |
 | `src/ThermoBook/TrayIconRenderer.cs` | Desenha a temperatura no ícone da bandeja. |
-| `src/ThermoBook/MainForm.cs` | Painel com cartões e gráficos. |
+| `src/ThermoBook/MainForm.cs` | Painel completo em abas (12.1): Monitor (cartões e gráficos) e Modos; recebe Ferramentas e Configurações prontas. |
+| `src/ThermoBook/SettingsPage.cs` | Fase 12.1: aba Configurações (pílula, atalho, alerta, iniciar com o Windows). |
+| `src/ThermoBook/Theme.cs` | Cores do DESIGN.md e botão escuro das abas. |
+| `src/ThermoBook/QuickPanel.cs`, `PillForm.cs`, `PillLayout.cs`, `PillDock.cs`, `Flyout.cs`, `FloatingForm.cs` | Fases 9 e 10: pílula, flyout e painel rápido. |
+| `src/ThermoBook/ModeStore.cs` | Fase 10.3: único lugar do estado do modo e do segundo plano. |
 | `src/ThermoBook/Services/SensorService.cs` | Coleta WMI em thread de fundo → `Snapshot`. |
 | `src/ThermoBook/Services/PowerService.cs` | P/Invoke `powrprof.dll`: turbo e limite da CPU (vira genérico na fase 7). |
 | `src/ThermoBook/Services/SettingsStore.cs` | `settings.json` em `%AppData%\ThermoBook`. |
@@ -31,7 +35,7 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | `src/ThermoBook/Services/Cleanup.cs` | Fase 11.2: limpeza de temporários, DNS e Lixeira (processo elevado). |
 | `src/ThermoBook/Services/ElevatedTask.cs` | Fase 11: relança o app com UAC (`--tarefa`), lista fechada de tarefas, relatório JSON. |
 | `src/ThermoBook/Services/Tweaks.cs` | Fase 11.3: ajustes de registro com backup e Desfazer, TRIM, status do Defender, apps pré-instalados. |
-| `src/ThermoBook/OptimizeForm.cs` | Fase 11.3: tela "Otimizar o Windows" (itens marcáveis, Aplicar, Desfazer). |
+| `src/ThermoBook/ToolsPage.cs` | Aba Ferramentas: limpeza (11.2) e otimização do Windows (11.3: itens marcáveis, Aplicar, Desfazer). |
 | `tests/ThermoBook.Tests/CoreTests.cs` | Testes xUnit. |
 | `installer/ThermoBook.iss` | Instalador Inno Setup. |
 | `.github/workflows/build.yml` | Build e testes em push/PR. |

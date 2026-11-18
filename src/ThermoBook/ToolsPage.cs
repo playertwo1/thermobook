@@ -4,13 +4,14 @@ using ThermoBook.Services;
 namespace ThermoBook;
 
 /// <summary>
-/// Tela da otimização do Windows (fase 11.3): itens marcáveis agrupados como o .ps1, Aplicar, Desfazer e o status do Defender no fim.
-/// Ajustes de HKCU rodam aqui, sem administrador; Delivery Optimization e TRIM vão para o processo elevado (11.1).
+/// Aba Ferramentas do painel completo: limpeza (11.2) e otimização do Windows (11.3), com itens marcáveis agrupados como o .ps1,
+/// Aplicar, Desfazer e o status do Defender no fim.
+/// Ajustes de HKCU rodam aqui, sem administrador; limpeza, Delivery Optimization e TRIM vão para o processo elevado (11.1).
 /// </summary>
-internal sealed class OptimizeForm : Form
+internal sealed class ToolsPage : UserControl
 {
-    private static readonly Color Bg = Color.FromArgb(24, 24, 27), Fg = Color.FromArgb(236, 236, 240), Dim = Color.FromArgb(160, 160, 170);
     internal const string RemoveWarning = "Isso não pode ser desfeito pelo ThermoBook; reinstale pela Microsoft Store.";
+    internal const string RecycleWarning = "Isto também esvazia a Lixeira de todas as unidades. Não tem volta. Continuar?";
 
     private readonly Dictionary<string, int?> _backup;
     private readonly Action<Dictionary<string, int?>> _persist;
@@ -21,15 +22,16 @@ internal sealed class OptimizeForm : Form
     private readonly Func<string> _defenderStatus;
     private readonly Func<string, bool> _confirm;
 
+    internal readonly CheckBox Recycle;
     internal readonly Dictionary<Tweak, CheckBox> TweakBoxes = [];
     internal readonly CheckBox Trim;
     internal readonly List<(BloatApp App, CheckBox Box)> AppBoxes = [];
     private readonly FlowLayoutPanel _list;
     private readonly Label _appsNote, _status, _defender;
-    private readonly Button _apply, _undo;
+    private readonly Button _clean, _apply, _undo;
 
     /// <param name="root">Só nos testes: chave falsa usada no lugar de HKCU e de HKLM.</param>
-    public OptimizeForm(Dictionary<string, int?> backup, Action<Dictionary<string, int?>> persist, RegistryKey? root = null,
+    public ToolsPage(Dictionary<string, int?> backup, Action<Dictionary<string, int?>> persist, RegistryKey? root = null,
         Func<string, Task<TaskReport>>? elevated = null, Func<IReadOnlyList<BloatApp>>? listApps = null,
         Func<string, Task>? removeApp = null, Func<string>? defenderStatus = null, Func<string, bool>? confirm = null)
     {
@@ -45,20 +47,22 @@ internal sealed class OptimizeForm : Form
             MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.OK);
 
         SuspendLayout();
-        AutoScaleDimensions = new SizeF(96, 96);
-        AutoScaleMode = AutoScaleMode.Dpi;
-        Text = "ThermoBook - Otimizar o Windows";
-        Font = new Font("Segoe UI", 9.5f);
-        BackColor = Bg;
-        ForeColor = Fg;
-        ClientSize = new Size(560, 640);
-        MinimumSize = new Size(480, 420);
-        StartPosition = FormStartPosition.CenterScreen;
+        BackColor = Theme.Bg;
+        ForeColor = Theme.Fg;
 
         _list = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(12) };
+        _list.Controls.Add(Theme.Header("Limpeza"));
+        _list.Controls.Add(Theme.Note("Temporários, relatórios de erro, cache do Windows Update e cache DNS. Itens em uso são pulados. Pede permissão de administrador."));
+        Recycle = Check("Também esvaziar a Lixeira (não tem volta)", @checked: false);
+        _list.Controls.Add(Recycle);
+        _clean = Theme.Button("Limpar agora (administrador)");
+        _clean.Margin = new Padding(12, 6, 3, 6);
+        _clean.Click += async (_, _) => await CleanAsync();
+        _list.Controls.Add(_clean);
+
         foreach (var group in Tweaks.All.GroupBy(t => t.Group))
         {
-            _list.Controls.Add(Header(group.Key));
+            _list.Controls.Add(Theme.Header(group.Key));
             foreach (var t in group)
             {
                 var box = Check(t.Label, @checked: true);
@@ -66,19 +70,19 @@ internal sealed class OptimizeForm : Form
                 _list.Controls.Add(box);
             }
         }
-        _list.Controls.Add(Header("Disco"));
+        _list.Controls.Add(Theme.Header("Disco"));
         Trim = Check("TRIM nos SSDs (administrador)", @checked: true);
         _list.Controls.Add(Trim);
-        _list.Controls.Add(Header("Apps pré-instalados"));
-        _appsNote = new Label { AutoSize = true, ForeColor = Dim, Text = "Procurando apps...", Margin = new Padding(3, 0, 3, 6) };
+        _list.Controls.Add(Theme.Header("Apps pré-instalados"));
+        _appsNote = Theme.Note("Procurando apps...");
         _list.Controls.Add(_appsNote);
 
-        _apply = new Button { Text = "Aplicar", AutoSize = true, FlatStyle = FlatStyle.System };
-        _undo = new Button { Text = "Desfazer ajustes", AutoSize = true, FlatStyle = FlatStyle.System };
+        _apply = Theme.Button("Aplicar ajustes");
+        _undo = Theme.Button("Desfazer ajustes");
         _apply.Click += async (_, _) => await ApplyAsync();
         _undo.Click += async (_, _) => await UndoAsync();
-        _status = new Label { AutoSize = true, MaximumSize = new Size(530, 0), Margin = new Padding(3, 8, 3, 0) };
-        _defender = new Label { AutoSize = true, MaximumSize = new Size(530, 0), ForeColor = Dim, Margin = new Padding(3, 8, 3, 0) };
+        _status = new Label { AutoSize = true, MaximumSize = new Size(640, 0), Margin = new Padding(3, 8, 3, 0) };
+        _defender = new Label { AutoSize = true, MaximumSize = new Size(640, 0), ForeColor = Theme.Muted, Margin = new Padding(3, 8, 3, 0) };
         var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(12, 6, 12, 12) };
         bottom.Controls.AddRange([_apply, _undo]);
         bottom.SetFlowBreak(_undo, true);
@@ -91,12 +95,10 @@ internal sealed class OptimizeForm : Form
         ResumeLayout();
     }
 
-    private static Label Header(string text) =>
-        new() { Text = text, AutoSize = true, Font = new Font("Segoe UI Semibold", 11f), Margin = new Padding(0, 10, 0, 4) };
-
     private static CheckBox Check(string text, bool @checked) =>
         new() { Text = text, AutoSize = true, Checked = @checked, Margin = new Padding(12, 2, 3, 2) };
 
+    // Roda só quando a aba aparece pela primeira vez: abrir o painel não lista apps nem consulta o Defender.
     protected override async void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
@@ -138,6 +140,16 @@ internal sealed class OptimizeForm : Form
     }
 
     private void Persist() => _persist(new(_backup));
+
+    /// <summary>Limpeza no processo elevado; a Lixeira só com a caixa marcada e depois de confirmar.</summary>
+    internal async Task CleanAsync()
+    {
+        bool recycle = Recycle.Checked;
+        if (recycle && !_confirm(RecycleWarning)) return;
+        SetBusy(true);
+        _status.Text = (await _elevated(recycle ? "limpeza-lixeira" : "limpeza")).Message;
+        SetBusy(false);
+    }
 
     internal async Task ApplyAsync()
     {
@@ -192,7 +204,7 @@ internal sealed class OptimizeForm : Form
 
     private void SetBusy(bool busy)
     {
-        _apply.Enabled = _undo.Enabled = !busy;
-        if (busy) _status.Text = "Aplicando...";
+        _clean.Enabled = _apply.Enabled = _undo.Enabled = !busy; // um UAC por vez
+        if (busy) _status.Text = "Trabalhando...";
     }
 }

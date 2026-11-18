@@ -229,8 +229,10 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 ## Fase 12 — Painel completo, instalador e release v0.2.0
 
 ### 12.1 Painel completo em abas
-- [ ] Abas **Monitor** (cartões e gráficos da v0.1), **Modos** (tabela dos 6 modos com descrição + controles avançados de turbo/limite da v0.1), **Ferramentas** (11.2 e 11.3), **Configurações** (pílula, atalho, alerta, iniciar com o Windows).
-- [ ] Fundo preto `#000000` igual à pílula.
+- [x] Abas **Monitor** (cartões e gráficos da v0.1), **Modos** (tabela dos 6 modos com descrição + controles avançados de turbo/limite da v0.1), **Ferramentas** (11.2 e 11.3), **Configurações** (pílula, atalho, alerta, iniciar com o Windows).
+- [x] Fundo preto `#000000` igual à pílula.
+
+> Feito na 12.1 (commit direto no `main`, a pedido do dono): `MainForm` virou a moldura em abas no jeito do OpenUsage (faixa de botões de segmento no topo, aba ativa em `raised` + negrito, uma página por vez, rodapé com o status; Ctrl+Tab/Ctrl+Shift+Tab trocam de aba). Modos: os 6 modos com descrição (o atual em `accent`), "Ativo agora", controles avançados de turbo/limite e o botão da ventoinha Samsung. Ferramentas: `ToolsPage` (era a `OptimizeForm`, agora página) com a limpeza no topo (Lixeira desmarcada e com confirmação) e a otimização da 11.3 sem mudança de regra (apps desmarcados com confirmação, Desfazer, WMI e PackageManager fora da thread da interface; a lista de apps e o Defender só são lidos quando a aba aparece pela primeira vez). Configurações: `SettingsPage` com pílula, atalho (registra na hora; se estiver em uso, avisa e fica o anterior; vazio desliga), alerta (°C e segundos, troca para Frio) e iniciar com o Windows; toda mudança passa por `TrayApp.ChangeSettings`, que salva e atualiza o menu da bandeja e a aba. O menu da bandeja troca os 3 itens de ferramentas por um só "Ferramentas...", e o "Ferramentas" do painel rápido abre o painel já nessa aba. Testado: abas (uma visível por vez, Ctrl+Tab dá a volta), limpeza com e sem Lixeira, aba Configurações (mostrar não dispara mudança, cada controle muda só o seu campo, atalho válido/vazio/inválido/em uso). Renderizei as 4 abas em imagem a 100%. **Falta verificar rodando o app:** nitidez em 150% e 200%, navegação por teclado e foco (Tab, Ctrl+Tab, Enter) e a aba Ferramentas listando apps e Defender de verdade.
 
 ### 12.2 Instalador
 - [ ] Desinstalar: se o segundo plano estiver ligado, restaura o snapshot; volta ao modo Eficiência (padrão de fábrica do notebook de testes); remove a Run key e o atalho global.

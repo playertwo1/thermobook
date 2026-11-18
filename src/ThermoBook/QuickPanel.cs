@@ -18,7 +18,7 @@ internal sealed class QuickPanel : FloatingForm
     protected override bool CanActivate => true;
     protected override int RegionRadius => (int)Math.Round(14 * DeviceDpi / 96f);
 
-    public QuickPanel(Action<PowerMode> applyMode, Action toggleBackground, Action turnOffDisplay, Action openFull)
+    public QuickPanel(Action<PowerMode> applyMode, Action toggleBackground, Action turnOffDisplay, Action openFull, Action openTools)
     {
         SuspendLayout();
         // Tamanhos em pixels de 96 DPI; o WinForms escala para o DPI do monitor (PerMonitorV2 no csproj).
@@ -57,8 +57,8 @@ internal sealed class QuickPanel : FloatingForm
         var screen = MakeButton("Desligar tela", pad + aw + gap, ay, aw, ah);
         screen.Click += (_, _) => { Hide(); turnOffDisplay(); };
         var tools = MakeButton("Ferramentas", pad + 2 * (aw + gap), ay, aw, ah);
-        _tip.SetToolTip(tools, "Ferramentas… (abre o painel completo)");
-        tools.Click += (_, _) => { Hide(); openFull(); };
+        _tip.SetToolTip(tools, "Limpeza e otimização (abre o painel completo na aba Ferramentas)");
+        tools.Click += (_, _) => { Hide(); openTools(); };
         foreach (var b in new[] { _background, screen, tools }) b.Font = small;
         Controls.AddRange([_background, screen, tools]);
 

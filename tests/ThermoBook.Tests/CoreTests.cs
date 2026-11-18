@@ -289,7 +289,7 @@ public class MainFormTests
     [Fact]
     public void Builds_and_takes_more_than_a_minute_of_readings()
     {
-        using var form = new MainForm(_ => { }, (_, _) => { }, openFan: null);
+        using var form = Painel();
         var s = new Snapshot(12, 2.1, 90, 5, 4, 1, 2e9, 8e9, 32e9, 3, 1e6, 2e6, 500e9, [55, 52]);
         for (int i = 0; i < 70; i++) form.Push(s);
         form.ShowPower(0, 100, current: null, syncControls: true);
@@ -300,15 +300,131 @@ public class MainFormTests
     public void Close_from_another_program_only_hides()
     {
         // Regressão: WM_CLOSE sem SC_CLOSE chega como TaskManagerClosing; o painel era descartado e o "abrir" seguinte derrubava o app.
-        using var form = new MainForm(_ => { }, (_, _) => { }, openFan: null);
+        using var form = Painel();
         form.Show();
         SendMessage(form.Handle, 0x0010 /* WM_CLOSE */, 0, 0);
         Assert.False(form.IsDisposed);
         Assert.False(form.Visible);
     }
 
+    // Ferramentas e Configurações entram como painéis vazios: nada de registro, UAC ou settings.json reais.
+    private static MainForm Painel() => new(_ => { }, (_, _) => { }, openFan: null, new Panel(), new Panel());
+
+    [Fact]
+    public void Abre_no_Monitor_e_mostra_uma_aba_por_vez()
+    {
+        using var form = Painel();
+        Assert.Equal(PanelTab.Monitor, form.Tab);
+        form.Show();
+
+        form.ShowTab(PanelTab.Tools);
+        var host = form.Controls.OfType<Panel>().Single(p => p.Dock == DockStyle.Fill);
+        Assert.Single(host.Controls.Cast<Control>(), c => c.Visible);
+        Assert.Equal(PanelTab.Tools, form.Tab);
+    }
+
+    [Fact]
+    public void Ctrl_Tab_troca_de_aba_e_da_a_volta()
+    {
+        using var form = Painel();
+        form.Show();
+        SendKeysTo(form, Keys.Control | Keys.Shift | Keys.Tab);
+        Assert.Equal(PanelTab.Settings, form.Tab);
+        SendKeysTo(form, Keys.Control | Keys.Tab);
+        Assert.Equal(PanelTab.Monitor, form.Tab);
+    }
+
+    private static void SendKeysTo(MainForm form, Keys keys)
+    {
+        var msg = new Message { HWnd = form.Handle, Msg = 0x0100 /* WM_KEYDOWN */ };
+        typeof(Form).GetMethod("ProcessCmdKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .Invoke(form, [msg, keys]);
+    }
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+}
+
+public class SettingsPageTests
+{
+    private static SettingsPage Pagina(List<Settings> salvas, Func<Settings, string?>? erro = null)
+    {
+        SettingsPage? pagina = null;
+        var atual = new Settings();
+        pagina = new SettingsPage(edit =>
+        {
+            var next = edit(atual);
+            string? e = erro?.Invoke(next);
+            if (e is null) atual = next;
+            salvas.Add(atual);
+            pagina!.Show(atual, startup: false); // como o TrayApp: devolve o que ficou salvo
+            return e;
+        }, _ => { });
+        pagina.Show(atual, startup: false);
+        return pagina;
+    }
+
+    [Fact]
+    public void Mostrar_nao_dispara_mudanca()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.Show(new Settings(AlertCelsius: 80, AlertSeconds: 10, AutoCool: true, ShowPill: false, Hotkey: "Ctrl+Alt+K"), startup: true);
+        Assert.Empty(salvas);
+        Assert.False(pagina.Pill.Checked);
+        Assert.True(pagina.Startup.Checked);
+        Assert.Equal(80, pagina.AlertCelsius.Value);
+        Assert.Equal("Ctrl+Alt+K", pagina.Hotkey.Text);
+    }
+
+    [Fact]
+    public void Cada_controle_muda_so_o_seu_campo()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.Pill.Checked = false;
+        pagina.AutoCool.Checked = true;
+        pagina.AlertCelsius.Value = 85;
+        pagina.AlertSeconds.Value = 45;
+
+        var s = salvas[^1];
+        Assert.Equal(new Settings(ShowPill: false, AutoCool: true, AlertCelsius: 85, AlertSeconds: 45), s);
+    }
+
+    [Theory]
+    [InlineData("Ctrl+Alt+K", "Ctrl+Alt+K", "Atalho registrado.")]
+    [InlineData("", "", "Atalho desligado.")]
+    public void Atalho_valido_e_salvo(string texto, string salvo, string aviso)
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.Hotkey.Text = texto;
+        pagina.ApplyHotkey();
+        Assert.Equal(salvo, Assert.Single(salvas).Hotkey);
+        Assert.Equal(aviso, pagina.HotkeyStatus.Text);
+    }
+
+    [Fact]
+    public void Atalho_invalido_nem_chega_ao_TrayApp()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas);
+        pagina.Hotkey.Text = "K";
+        pagina.ApplyHotkey();
+        Assert.Empty(salvas);
+        Assert.Equal("Atalho inválido.", pagina.HotkeyStatus.Text);
+    }
+
+    [Fact]
+    public void Atalho_em_uso_mostra_o_erro_e_volta_ao_anterior()
+    {
+        List<Settings> salvas = [];
+        using var pagina = Pagina(salvas, next => next.Hotkey == "Ctrl+Alt+K" ? "em uso" : null);
+        pagina.Hotkey.Text = "Ctrl+Alt+K";
+        pagina.ApplyHotkey();
+        Assert.Equal("em uso", pagina.HotkeyStatus.Text);
+        Assert.Equal(HotkeyService.Default, pagina.Hotkey.Text);
+    }
 }
 
 public class PillTests
@@ -1083,9 +1199,9 @@ public class QuickPanelTests
 {
     private static readonly Color Destaque = Color.FromArgb(0x40, 0x9C, 0xFF), Neutro = Color.FromArgb(0x14, 0x14, 0x14);
 
-    private static QuickPanel Abrir(Action<PowerMode>? modo = null, Action? segundoPlano = null, Action? tela = null, Action? completo = null)
+    private static QuickPanel Abrir(Action<PowerMode>? modo = null, Action? segundoPlano = null, Action? tela = null, Action? completo = null, Action? ferramentas = null)
     {
-        var painel = new QuickPanel(modo ?? (_ => { }), segundoPlano ?? (() => { }), tela ?? (() => { }), completo ?? (() => { }));
+        var painel = new QuickPanel(modo ?? (_ => { }), segundoPlano ?? (() => { }), tela ?? (() => { }), completo ?? (() => { }), ferramentas ?? (() => { }));
         painel.Location = new Point(-3000, -3000); // mostra de verdade, mas fora da tela
         painel.Show();
         Application.DoEvents();
@@ -1123,14 +1239,15 @@ public class QuickPanelTests
     }
 
     [Fact]
-    public void Ferramentas_abre_o_painel_completo_e_esconde_o_painel()
+    public void Ferramentas_abre_a_aba_Ferramentas_e_esconde_o_painel()
     {
-        var chamadas = 0;
-        using var painel = Abrir(completo: () => chamadas++);
+        int ferramentas = 0, completo = 0;
+        using var painel = Abrir(completo: () => completo++, ferramentas: () => ferramentas++);
 
         Botao(painel, "Ferramentas").PerformClick();
 
-        Assert.Equal(1, chamadas);
+        Assert.Equal(1, ferramentas);
+        Assert.Equal(0, completo);
         Assert.False(painel.Visible);
     }
 
@@ -1639,7 +1756,7 @@ public class TweaksTests
     public void Texto_do_Defender(bool av, bool rt, string esperado) => Assert.Equal(esperado, Tweaks.DescribeDefender(av, rt, null));
 
     // Tela com dependências falsas: nenhum UAC, nenhum app real, registro só na raiz de teste.
-    private static OptimizeForm Tela(Raiz raiz, List<string> elevadas, List<string> removidos, bool confirma, List<string>? perguntas = null) =>
+    private static ToolsPage Tela(Raiz raiz, List<string> elevadas, List<string> removidos, bool confirma, List<string>? perguntas = null) =>
         new(new(), _ => { }, raiz.Key,
             elevated: task => { elevadas.Add(task); return Task.FromResult(new TaskReport(TaskOutcome.Ok, "ok")); },
             listApps: () => [], removeApp: n => { removidos.Add(n); return Task.CompletedTask; },
@@ -1673,7 +1790,7 @@ public class TweaksTests
 
         await tela.ApplyAsync();
         Assert.Equal(["B_1"], removidos);
-        Assert.Contains(OptimizeForm.RemoveWarning, Assert.Single(perguntas));
+        Assert.Contains(ToolsPage.RemoveWarning, Assert.Single(perguntas));
     }
 
     [Fact]
@@ -1689,6 +1806,34 @@ public class TweaksTests
         Assert.Empty(removidos);
         Assert.Empty(elevadas);
         Assert.Null(raiz.Valor(Tweaks.All[0]));
+    }
+
+    [Fact]
+    public async Task Limpeza_sem_Lixeira_nao_pergunta_e_roda_limpeza()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [], removidos = [], perguntas = [];
+        using var tela = Tela(raiz, elevadas, removidos, confirma: false, perguntas);
+        Assert.False(tela.Recycle.Checked); // desmarcada por padrão: não tem volta
+
+        await tela.CleanAsync();
+        Assert.Equal(["limpeza"], elevadas);
+        Assert.Empty(perguntas);
+    }
+
+    [Theory]
+    [InlineData(true, "limpeza-lixeira")]
+    [InlineData(false, null)]
+    public async Task Lixeira_so_depois_de_confirmar(bool confirma, string? esperada)
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [], removidos = [], perguntas = [];
+        using var tela = Tela(raiz, elevadas, removidos, confirma, perguntas);
+        tela.Recycle.Checked = true;
+
+        await tela.CleanAsync();
+        Assert.Equal(ToolsPage.RecycleWarning, Assert.Single(perguntas));
+        Assert.Equal(esperada is null ? [] : [esperada], elevadas);
     }
 
     [Fact]

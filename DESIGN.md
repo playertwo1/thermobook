@@ -108,7 +108,12 @@ O mesmo menu da bandeja (um só `ContextMenuStrip` para os dois), mais "Esconder
 
 ### Painel completo
 
-O painel da v0.1 (cartões + gráficos) ganha abas: **Monitor**, **Modos**, **Ferramentas**, **Configurações**. Mesmo fundo preto da pílula (troca o `#18181B` atual por `#000000` para unificar).
+O painel da v0.1 (cartões + gráficos) ganha abas: **Monitor**, **Modos**, **Ferramentas**, **Configurações**. Mesmo fundo preto da pílula (`#000000`); cartões e botões em `raised`.
+
+- Abas no jeito do OpenUsage: faixa de botões de segmento no topo, sem fundo; a aba ativa ganha fundo `raised` e negrito. Ctrl+Tab / Ctrl+Shift+Tab trocam de aba. Embaixo, o rodapé com a hora da última leitura em `muted`.
+- **Modos**: os 6 modos, um por linha, com a descrição ao lado; o atual em `accent`. Embaixo, "Avançado" (turbo e limite à mão, vira "Personalizado") e o botão da ventoinha Samsung quando o app existe.
+- **Ferramentas**: limpeza (Lixeira desmarcada, pede confirmação) e otimização do Windows (Aplicar ajustes, Desfazer ajustes, status do Defender no fim).
+- **Configurações**: pílula, atalho para desligar a tela, alerta (°C, segundos, trocar para Frio) e iniciar com o Windows. Salva na hora.
 
 ## Comportamento
 
