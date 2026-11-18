@@ -1334,7 +1334,10 @@ public class ElevatedTaskTests
     [Theory]
     [InlineData("limpeza")]
     [InlineData("limpeza-lixeira")]
-    [InlineData("otimizacao")]
+    [InlineData("otimizacao-entrega")]
+    [InlineData("otimizacao-trim")]
+    [InlineData("otimizacao-entrega-trim")]
+    [InlineData("otimizacao-desfazer")]
     public void Aceita_so_tarefas_conhecidas(string task) =>
         Assert.Equal(new ElevatedTask.Args(task, Report), ElevatedTask.Parse(["--tarefa", task, "--relatorio", Report]));
 
@@ -1514,4 +1517,195 @@ public class CleanupTests
     [InlineData(52_428_800L, "50 MB liberados")]
     [InlineData(1_288_490_189L, "1,2 GB liberados")]
     public void Texto_do_resultado(long bytes, string expected) => Assert.Equal(expected, Cleanup.Describe(bytes));
+}
+
+public class TweaksTests
+{
+    // Nunca as chaves reais do Windows: cada teste usa HKCU\Software\ThermoBook\Teste\<guid> como raiz (no lugar de HKCU e HKLM).
+    private sealed class Raiz : IDisposable
+    {
+        private readonly string _path = $@"Software\ThermoBook\Teste\{Guid.NewGuid():N}";
+        public readonly Microsoft.Win32.RegistryKey Key;
+        public Raiz() => Key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(_path, writable: true);
+        public object? Valor(Tweak t) { using var k = Key.OpenSubKey(t.Path); return k?.GetValue(t.Name); }
+        public void Gravar(Tweak t, object v) { using var k = Key.CreateSubKey(t.Path); k.SetValue(t.Name, v); }
+        public void Dispose()
+        {
+            Key.Dispose();
+            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(_path, throwOnMissingSubKey: false);
+            // Some com a Teste (e a ThermoBook) quando ficam vazias; se outro teste ainda usa, DeleteSubKey lança e fica para ele.
+            foreach (var k in new[] { @"Software\ThermoBook\Teste", @"Software\ThermoBook" })
+                try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKey(k, throwOnMissingSubKey: false); } catch (InvalidOperationException) { break; }
+        }
+    }
+
+    public static TheoryData<int> Ajustes => new(Enumerable.Range(0, Tweaks.All.Length));
+
+    [Theory]
+    [MemberData(nameof(Ajustes))]
+    public void Aplicar_e_desfazer_volta_o_valor_original_quando_existia(int i)
+    {
+        var t = Tweaks.All[i];
+        using var raiz = new Raiz();
+        raiz.Gravar(t, 7);
+        var backup = new Dictionary<string, int?>();
+
+        Assert.True(Tweaks.Apply(raiz.Key, t, backup, () => { }));
+        Assert.Equal(t.Value, raiz.Valor(t));
+        Assert.Equal(7, backup[t.Key]);
+
+        Assert.Equal(1, Tweaks.Undo(raiz.Key, [t], backup, () => { }));
+        Assert.Equal(7, raiz.Valor(t));
+        Assert.Empty(backup);
+    }
+
+    [Theory]
+    [MemberData(nameof(Ajustes))]
+    public void Aplicar_e_desfazer_apaga_o_valor_quando_nao_existia(int i)
+    {
+        var t = Tweaks.All[i];
+        using var raiz = new Raiz();
+        var backup = new Dictionary<string, int?>();
+
+        Assert.True(Tweaks.Apply(raiz.Key, t, backup, () => { }));
+        Assert.Equal(t.Value, raiz.Valor(t));
+        Assert.Equal(1, Tweaks.Undo(raiz.Key, [t], backup, () => { }));
+        Assert.Null(raiz.Valor(t));
+    }
+
+    [Fact]
+    public void Aplicar_duas_vezes_nao_sobrescreve_o_backup()
+    {
+        var t = Tweaks.All[0];
+        using var raiz = new Raiz();
+        raiz.Gravar(t, 1);
+        var backup = new Dictionary<string, int?>();
+        Tweaks.Apply(raiz.Key, t, backup, () => { });
+        Tweaks.Apply(raiz.Key, t, backup, () => { });
+        Tweaks.Undo(raiz.Key, [t], backup, () => { });
+        Assert.Equal(1, raiz.Valor(t));
+    }
+
+    [Fact]
+    public void Backup_e_salvo_antes_de_gravar()
+    {
+        var t = Tweaks.All[0];
+        using var raiz = new Raiz();
+        raiz.Gravar(t, 5);
+        object? naHoraDeSalvar = null;
+        Tweaks.Apply(raiz.Key, t, new(), () => naHoraDeSalvar = raiz.Valor(t));
+        Assert.Equal(5, naHoraDeSalvar);
+    }
+
+    [Fact]
+    public void Valor_de_outro_tipo_nao_e_tocado()
+    {
+        var t = Tweaks.All[0];
+        using var raiz = new Raiz();
+        raiz.Gravar(t, "texto");
+        var backup = new Dictionary<string, int?>();
+        Assert.False(Tweaks.Apply(raiz.Key, t, backup, () => { }));
+        Assert.Equal("texto", raiz.Valor(t));
+        Assert.Empty(backup);
+    }
+
+    [Fact]
+    public void Ajustes_de_maquina_guardam_o_backup_na_raiz_e_desfazem()
+    {
+        var t = Tweaks.All.Single(x => x.Machine);
+        using var raiz = new Raiz();
+        raiz.Gravar(t, 3);
+
+        Assert.True(Tweaks.ApplyMachine(raiz.Key));
+        Assert.Equal(0, raiz.Valor(t));
+        Assert.Equal(3, Tweaks.LoadMachineBackup(raiz.Key)[t.Key]);
+
+        Assert.Equal(1, Tweaks.UndoMachine(raiz.Key));
+        Assert.Equal(3, raiz.Valor(t));
+        Assert.Empty(Tweaks.LoadMachineBackup(raiz.Key));
+    }
+
+    [Fact]
+    public void So_Delivery_Optimization_e_de_maquina_e_os_grupos_sao_os_do_ps1()
+    {
+        Assert.Equal([@"SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization\DODownloadMode"], Tweaks.All.Where(t => t.Machine).Select(t => t.Key));
+        Assert.Equal([Tweaks.Privacy, Tweaks.Performance], Tweaks.All.Select(t => t.Group).Distinct());
+    }
+
+    [Theory]
+    [InlineData(true, true, "Defender ativo, proteção em tempo real ligada.")]
+    [InlineData(true, false, "Defender ativo, mas a proteção em tempo real está DESLIGADA.")]
+    [InlineData(false, false, "Defender desligado.")]
+    public void Texto_do_Defender(bool av, bool rt, string esperado) => Assert.Equal(esperado, Tweaks.DescribeDefender(av, rt, null));
+
+    // Tela com dependências falsas: nenhum UAC, nenhum app real, registro só na raiz de teste.
+    private static OptimizeForm Tela(Raiz raiz, List<string> elevadas, List<string> removidos, bool confirma, List<string>? perguntas = null) =>
+        new(new(), _ => { }, raiz.Key,
+            elevated: task => { elevadas.Add(task); return Task.FromResult(new TaskReport(TaskOutcome.Ok, "ok")); },
+            listApps: () => [], removeApp: n => { removidos.Add(n); return Task.CompletedTask; },
+            defenderStatus: () => "", confirm: q => { perguntas?.Add(q); return confirma; });
+
+    private static readonly BloatApp[] Apps = [new("A", "App A", "A_1"), new("B", "App B", "B_1")];
+
+    [Fact]
+    public async Task Apps_vem_desmarcados_e_nenhum_e_removido_sem_marcar()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [], removidos = [], perguntas = [];
+        using var tela = Tela(raiz, elevadas, removidos, confirma: true, perguntas);
+        tela.ShowApps(Apps);
+
+        Assert.All(tela.AppBoxes, a => Assert.False(a.Box.Checked));
+        await tela.ApplyAsync();
+        Assert.Empty(removidos);
+        Assert.Empty(perguntas);
+        Assert.Equal(["otimizacao-entrega-trim"], elevadas);
+    }
+
+    [Fact]
+    public async Task Remove_so_o_marcado_depois_de_confirmar()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [], removidos = [], perguntas = [];
+        using var tela = Tela(raiz, elevadas, removidos, confirma: true, perguntas);
+        tela.ShowApps(Apps);
+        tela.AppBoxes[1].Box.Checked = true;
+
+        await tela.ApplyAsync();
+        Assert.Equal(["B_1"], removidos);
+        Assert.Contains(OptimizeForm.RemoveWarning, Assert.Single(perguntas));
+    }
+
+    [Fact]
+    public async Task Confirmacao_negada_nao_remove_nem_aplica_nada()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [], removidos = [];
+        using var tela = Tela(raiz, elevadas, removidos, confirma: false);
+        tela.ShowApps(Apps);
+        tela.AppBoxes[0].Box.Checked = true;
+
+        await tela.ApplyAsync();
+        Assert.Empty(removidos);
+        Assert.Empty(elevadas);
+        Assert.Null(raiz.Valor(Tweaks.All[0]));
+    }
+
+    [Fact]
+    public async Task Tela_aplica_e_desfaz_os_ajustes_da_conta_sem_UAC()
+    {
+        using var raiz = new Raiz();
+        List<string> elevadas = [], removidos = [];
+        using var tela = Tela(raiz, elevadas, removidos, confirma: true);
+        foreach (var (t, box) in tela.TweakBoxes) box.Checked = !t.Machine;
+        tela.Trim.Checked = false;
+
+        await tela.ApplyAsync();
+        Assert.Empty(elevadas);
+        Assert.All(Tweaks.All.Where(t => !t.Machine), t => Assert.Equal(t.Value, raiz.Valor(t)));
+
+        await tela.UndoAsync();
+        Assert.Empty(elevadas); // nada de máquina no backup: não pede UAC
+        Assert.All(Tweaks.All, t => Assert.Null(raiz.Valor(t)));
+    }
 }

@@ -4,8 +4,8 @@
 
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1 e 11.2 feitas, falta rodar no notebook com UAC)
-**Próxima subfase:** [11.3 Otimização do Windows](ROADMAP.md#113-otimização-do-windows)
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1–11.3 feitas, falta rodar no notebook com UAC)
+**Próxima subfase:** [12.1 Painel completo em abas](ROADMAP.md#121-painel-completo-em-abas)
 
 ## Progresso da v0.2
 
@@ -15,7 +15,7 @@
 | 8 Segundo plano e desligar tela | 🟨 em andamento (8.1–8.3 feitas, falta verificar no notebook) |
 | 9 Pílula flutuante | 🟨 em andamento (9.1–9.4 feitas, falta verificar rodando o app) |
 | 10 Painel rápido e flyout | 🟨 em andamento (10.1–10.3 feitas, falta verificar rodando o app) |
-| 11 Ferramentas com administrador | 🟨 em andamento (11.1 e 11.2 feitas, falta rodar no notebook com UAC) |
+| 11 Ferramentas com administrador | ⚠️ no `main` mas falta verificar no notebook (11.1–11.3 feitas, falta rodar com UAC) |
 | 12 Painel em abas, instalador, release | ⬜ não iniciada |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ no `main` · ⚠️ no `main` mas falta verificar no notebook
@@ -33,6 +33,10 @@ Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ no `main` · ⚠️ no `m
 | D7 | Atalho para desligar a tela é `Ctrl+Alt+Shift+D`, configurável em `settings.json` | Proposta A2 aceita por falta de objeção. |
 | D8 | Posição inicial da pílula: borda direita, centro vertical, monitor principal | Proposta A3 aceita por falta de objeção. |
 | D9 | Pílula aparece já na primeira execução | Proposta A4 aceita por falta de objeção. |
+| D10 | Apps pré-instalados removidos pelo `PackageManager` do WinRT; TFM `net10.0-windows10.0.19041.0` | Única API sem PowerShell. Aceito pelo dono (2026-11-18), mesmo com o .exe ~24 MB maior. |
+| D11 | Delivery Optimization pela política de máquina (HKLM, elevado), não pelo valor de HKCU do `.ps1` | O valor de HKCU é ignorado pelo Windows. Decidido com o dono. |
+| D12 | Otimização fica no que o `.ps1` faz: sem políticas de telemetria/Copilot/Recall de máquina; `TaskbarDa` entra; `CortanaConsent`, `BackgroundAppGlobalToggle` e `netsh` saem | Decidido com o dono (2026-11-18). |
+| D13 | Backup dos ajustes de máquina em `HKLM\SOFTWARE\ThermoBook\Desfazer`, não no `settings.json` | O processo elevado pode ser de outro usuário (UAC com senha de administrador); HKLM só administrador grava. |
 
 ## Decisões em aberto
 
@@ -48,10 +52,11 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 - **Overlay do modo de energia** só funciona com o plano Equilibrado ativo. Fora dele, os valores do processador são gravados direto e o overlay é ignorado.
 - **Verificação real exige o notebook** (tampa, UAC, `powercfg /qh`): CI só cobre build e testes.
 - **Modo segundo plano mexe na tampa/suspensão**: se algo falhar no meio, o snapshot em `settings.json` (`BackgroundPlans`) guarda os valores originais por plano; desligar o modo restaura.
-- **Fase 11 exige UAC e processo separado**: 11.1 começou com o aval do dono (2026-11-18); confirmar o escopo da 11.2/11.3 antes de implementar.
+- **Fase 11 exige UAC e processo separado**: nada da 11.1–11.3 rodou de verdade com UAC; a otimização real (registro, TRIM, remoção de apps) não foi rodada nesta máquina.
 
 ## Notas da última sessão
 
+- 11.3: `Tweaks` + `OptimizeForm` + item "Otimizar o Windows..." na bandeja. Testes só com `HKCU\Software\ThermoBook\Teste\<guid>` (removida no fim). Conferi só leitura a lista de apps e o Defender. Não rodei a otimização real.
 - 11.2: `Cleanup` + tarefas `limpeza` e `limpeza-lixeira` + 2 itens no menu da bandeja. Um teste meu chamou `DeleteContents("C:")` e apagou itens da pasta atual (caminho relativo ao disco); corrigido com `IsPathFullyQualified` antes de resolver e teste de regressão. Estrago ficou só na pasta de build. Não rodei a limpeza real.
 
 - 11.1: `ElevatedTask` (`Parse`/`RunElevated`/`LaunchAsync`) + desvio em `Program` antes do mutex + `TrayApp.RunTool` (balão). Tarefas ainda são marcadores; nenhum botão chama `RunTool` (vem na 11.2). Não vi o UAC de verdade.
