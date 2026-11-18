@@ -1557,6 +1557,88 @@ public class ElevatedTaskTests
     }
 }
 
+public class UninstallTests : IDisposable
+{
+    // Chave falsa no lugar de HKCU e HKLM; settings.json numa pasta temporária.
+    private readonly string _regPath = $@"Software\ThermoBook\Teste\{Guid.NewGuid():N}";
+    private readonly Microsoft.Win32.RegistryKey _root;
+    private readonly string _file = Path.Combine(Path.GetTempPath(), $"ThermoBook-{Guid.NewGuid():N}", "settings.json");
+    private readonly SettingsStore _store;
+    private readonly List<(Guid Plan, uint Ac)> _writes = [];
+    private readonly List<string> _elevated = [];
+    private int _applied;
+
+    public UninstallTests()
+    {
+        _root = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(_regPath, writable: true);
+        _store = new SettingsStore(_file);
+    }
+
+    public void Dispose()
+    {
+        _root.Dispose();
+        Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(_regPath, throwOnMissingSubKey: false);
+        foreach (var k in new[] { @"Software\ThermoBook\Teste", @"Software\ThermoBook" }) // some quando vazias, como no TweaksTests
+            try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKey(k, throwOnMissingSubKey: false); } catch (InvalidOperationException) { break; }
+        if (Directory.Exists(Path.GetDirectoryName(_file)))
+            Directory.Delete(Path.GetDirectoryName(_file)!, recursive: true);
+    }
+
+    private int Run(Action? apply = null, TaskOutcome uac = TaskOutcome.Ok) => Uninstall.Run(_store, _root, _root,
+        (plan, _, _, ac, _) => { _writes.Add((plan, ac)); return true; },
+        apply ?? (() => _applied++), task => { _elevated.Add(task); return new(uac, ""); });
+
+    [Fact]
+    public void Desfaz_segundo_plano_ajustes_da_conta_e_de_maquina_e_volta_o_modo()
+    {
+        var plan = Guid.NewGuid();
+        var t = Tweaks.All.First(x => !x.Machine);
+        var backup = new Dictionary<string, int?>();
+        Tweaks.Apply(_root, t, backup, () => { });
+        using (var k = _root.CreateSubKey(@"SOFTWARE\ThermoBook")) k.SetValue("Desfazer", "{\"x\":1}");
+        _store.Save(new Settings(TweakBackup: backup,
+            BackgroundPlans: new() { [plan.ToString()] = new() { ["lid"] = new PairValue(1, 1) } }));
+
+        Assert.Equal(0, Run());
+
+        Assert.Contains((plan, 1u), _writes);
+        using (var k = _root.OpenSubKey(t.Path)) Assert.Null(k?.GetValue(t.Name));
+        Assert.Equal(1, _applied);
+        Assert.Equal(["otimizacao-desfazer"], _elevated);
+        var s = _store.Load();
+        Assert.Null(s.BackgroundPlans);
+        Assert.Empty(s.TweakBackup!);
+    }
+
+    [Fact]
+    public void Sem_nada_ligado_so_volta_o_modo_e_nao_pede_UAC()
+    {
+        Assert.Equal(0, Run());
+        Assert.Empty(_writes);
+        Assert.Empty(_elevated);
+        Assert.Equal(1, _applied);
+    }
+
+    [Fact]
+    public void Passo_que_falha_nao_impede_os_outros()
+    {
+        var plan = Guid.NewGuid();
+        using (var k = _root.CreateSubKey(@"SOFTWARE\ThermoBook")) k.SetValue("Desfazer", "{\"x\":1}");
+        _store.Save(new Settings(BackgroundPlans: new() { [plan.ToString()] = new() { ["lid"] = new PairValue(1, 1) } }));
+
+        Assert.Equal(1, Run(apply: () => throw new InvalidOperationException()));
+        Assert.Contains((plan, 1u), _writes);
+        Assert.Equal(["otimizacao-desfazer"], _elevated);
+    }
+
+    [Fact]
+    public void UAC_recusado_devolve_1()
+    {
+        using (var k = _root.CreateSubKey(@"SOFTWARE\ThermoBook")) k.SetValue("Desfazer", "{\"x\":1}");
+        Assert.Equal(1, Run(uac: TaskOutcome.Cancelled));
+    }
+}
+
 public class CleanupTests
 {
     private static string NewDir()

@@ -41,8 +41,9 @@ Name: "{autoprograms}\ThermoBook"; Filename: "{app}\ThermoBook.exe"
 Filename: "{app}\ThermoBook.exe"; Description: "Abrir o ThermoBook"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-; Na ordem: fecha o app, volta o processador ao padrão de fábrica (perfil Normal).
-Filename: "{sys}\taskkill.exe"; Parameters: "/f /im ThermoBook.exe"; Flags: runhidden; RunOnceId: "Fechar"
+; Na ordem: fecha o app (o atalho global morre com ele, o RegisterHotKey não fica salvo); --restaurar desliga o segundo plano
+; (devolve tampa/suspensão), desfaz os ajustes da otimização (os de máquina pedem UAC) e volta ao modo Eficiência.
+Filename: "{sys}\taskkill.exe"; Parameters: "/f /im ThermoBook.exe"; Flags: runhidden waituntilterminated; RunOnceId: "Fechar"
 Filename: "{app}\ThermoBook.exe"; Parameters: "--restaurar"; Flags: runhidden waituntilterminated; RunOnceId: "Restaurar"
 
 [Registry]

@@ -56,16 +56,10 @@ static partial class Program
         return 0;
     }
 
-    /// <summary>Volta ao modo Eficiência (padrão de fábrica). Usado pelo desinstalador.</summary>
-    private static int Restore()
-    {
-        try
-        {
-            PowerService.Apply(PowerService.ModeByName("Eficiência")!);
-            return 0;
-        }
-        catch { return 1; } // sem janela de erro no meio da desinstalação
-    }
+    /// <summary>Usado pelo desinstalador: desliga o segundo plano, desfaz a otimização e volta ao modo Eficiência (padrão de fábrica).</summary>
+    private static int Restore() => Uninstall.Run(new SettingsStore(SettingsStore.DefaultPath), Microsoft.Win32.Registry.CurrentUser,
+        Microsoft.Win32.Registry.LocalMachine, PowerService.WritePlan, () => PowerService.Apply(PowerService.ModeByName("Eficiência")!),
+        task => ElevatedTask.LaunchAsync(task).GetAwaiter().GetResult());
 
     [LibraryImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
