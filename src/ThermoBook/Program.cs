@@ -8,6 +8,8 @@ static partial class Program
     [STAThread]
     static int Main(string[] args)
     {
+        // Antes de tudo: o processo elevado não abre bandeja nem janela, e argumento inválido não cai no app normal.
+        if (args.Contains("--tarefa")) return ElevatedTask.RunElevated(args);
         if (args.Contains("--diagnostico")) return Diagnose();
         if (args.Contains("--restaurar")) return Restore();
 

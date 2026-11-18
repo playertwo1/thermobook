@@ -4,8 +4,8 @@
 
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0 (fases 0–6)
-**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app)
-**Próxima subfase:** [11.1 Execução elevada](ROADMAP.md#111-execução-elevada)
+**Em andamento:** fase 7 (7.1 a 7.4 feitas, falta conferir no notebook); fase 8 (8.1 a 8.3 feitas, falta verificar no notebook); fase 9 (9.1–9.4 feitas, falta verificar rodando o app); fase 10 (10.1–10.3 feitas, falta verificar rodando o app); fase 11 (11.1 feita, falta ver o UAC no notebook)
+**Próxima subfase:** [11.2 Limpeza](ROADMAP.md#112-limpeza)
 
 ## Progresso da v0.2
 
@@ -15,7 +15,7 @@
 | 8 Segundo plano e desligar tela | 🟨 em andamento (8.1–8.3 feitas, falta verificar no notebook) |
 | 9 Pílula flutuante | 🟨 em andamento (9.1–9.4 feitas, falta verificar rodando o app) |
 | 10 Painel rápido e flyout | 🟨 em andamento (10.1–10.3 feitas, falta verificar rodando o app) |
-| 11 Ferramentas com administrador | ⬜ não iniciada |
+| 11 Ferramentas com administrador | 🟨 em andamento (11.1 feita, falta ver o UAC no notebook) |
 | 12 Painel em abas, instalador, release | ⬜ não iniciada |
 
 Legenda: ⬜ não iniciada · 🟨 em andamento · ✅ no `main` · ⚠️ no `main` mas falta verificar no notebook
@@ -48,10 +48,11 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 - **Overlay do modo de energia** só funciona com o plano Equilibrado ativo. Fora dele, os valores do processador são gravados direto e o overlay é ignorado.
 - **Verificação real exige o notebook** (tampa, UAC, `powercfg /qh`): CI só cobre build e testes.
 - **Modo segundo plano mexe na tampa/suspensão**: se algo falhar no meio, o snapshot em `settings.json` (`BackgroundPlans`) guarda os valores originais por plano; desligar o modo restaura.
-- **Fase 11 exige UAC e processo separado**: confirmar o escopo com o dono antes de implementar.
+- **Fase 11 exige UAC e processo separado**: 11.1 começou com o aval do dono (2026-11-18); confirmar o escopo da 11.2/11.3 antes de implementar.
 
 ## Notas da última sessão
 
+- 11.1: `ElevatedTask` (`Parse`/`RunElevated`/`LaunchAsync`) + desvio em `Program` antes do mutex + `TrayApp.RunTool` (balão). Tarefas ainda são marcadores; nenhum botão chama `RunTool` (vem na 11.2). Não vi o UAC de verdade.
 - 10.3: `ModeStore` + `OnModeStateChanged`; `PublishMode` removido. Warnings antigos de CS0108 corrigidos (`QuickPanel.Highlight`, `PillForm.SnapToEdge`).
 - 10.2: `QuickPanel` + clique na pílula + `FloatingForm.CanActivate`. `PublishMode` no `TrayApp` já começa a unificar o estado (10.3 completa com evento). Sem ícones nos modos e sem engrenagem por ora.
 - 10.1: `FloatingForm` extraído do `PillForm`; flyout com texto, posição e controlador de tempos. Não passei o mouse de verdade.

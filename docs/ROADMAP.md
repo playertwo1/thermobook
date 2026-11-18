@@ -195,12 +195,14 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 **Objetivo:** substituir o `Manutencao_e_Limpeza_Automatica.bat` e o `Otimizar_e_Debloat_Windows11.ps1` sem rodar o app inteiro como administrador.
 
 ### 11.1 Execução elevada
-- [ ] O app relança **ele mesmo** com `ThermoBook.exe --tarefa <nome> --relatorio <arquivo>` via `ShellExecute` verbo `runas` (UAC). O processo elevado não abre janela, faz a tarefa, grava um relatório JSON e sai.
-- [ ] O app normal espera o processo, lê o relatório e mostra uma notificação com o resultado ("1,2 GB liberados").
-- [ ] UAC cancelado = notificação "Cancelado", sem erro.
-- [ ] Lista fechada de tarefas aceitas (`limpeza`, `otimizacao`); qualquer outro argumento é recusado (o processo elevado é uma fronteira de confiança).
+- [x] O app relança **ele mesmo** com `ThermoBook.exe --tarefa <nome> --relatorio <arquivo>` via `ShellExecute` verbo `runas` (UAC). O processo elevado não abre janela, faz a tarefa, grava um relatório JSON e sai.
+- [x] O app normal espera o processo, lê o relatório e mostra uma notificação com o resultado ("1,2 GB liberados").
+- [x] UAC cancelado = notificação "Cancelado", sem erro.
+- [x] Lista fechada de tarefas aceitas (`limpeza`, `otimizacao`); qualquer outro argumento é recusado (o processo elevado é uma fronteira de confiança).
 
 **Pronto quando:** teste do parser de argumentos (aceita só as tarefas conhecidas); cancelar o UAC não gera exceção.
+
+> Feito no PR da 11.1: `ElevatedTask` com `Parse` (aceita só `--tarefa <limpeza|otimizacao> --relatorio <caminho completo .json>`, nessa ordem e nada mais), `RunElevated` (roda a tarefa, grava o relatório com `CreateNew`, então o processo elevado nunca sobrescreve um arquivo existente) e `LaunchAsync` (`runas`, espera o processo, lê e apaga o relatório; UAC cancelado, erro 1223, vira "Cancelado" e nunca lança). `Program` desvia para o lado elevado antes do mutex e da bandeja; `TrayApp.RunTool` mostra o balão (erro só quando a tarefa falha). Testado: parser (válidos e 9 inválidos), arquivo existente não é sobrescrito, UAC cancelado simulado, ida e volta do relatório. Rodei o `.exe` direto com `--tarefa`: grava o relatório e sai sem abrir janela. As duas tarefas ainda devolvem "ainda não implementada" (corpos na 11.2 e na 11.3), e nenhum botão chama `RunTool` ainda (chega com a 11.2). **Falta verificar no notebook:** o UAC aparecer de verdade e "Não" mostrar o balão "Cancelado".
 
 ### 11.2 Limpeza
 - [ ] Porta o `.bat`: `%TEMP%`, `C:\Windows\Temp`, relatórios WER e crash dumps, `SoftwareDistribution\Download`, pastas vazias, cache DNS. Itens em uso são pulados em silêncio.

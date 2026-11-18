@@ -34,6 +34,7 @@ internal sealed class TrayApp : ApplicationContext
     private uint? _turbo;
     private int _ticks;
     private bool _alertBalloonShown; // o clique no balão só troca de perfil se o balão for o do alerta
+    private bool _toolRunning;
 
     public TrayApp(SettingsStore store, WaitHandle openPanelSignal, bool showPanel)
     {
@@ -316,6 +317,20 @@ internal sealed class TrayApp : ApplicationContext
         _status.Text = summary;
         string tip = $"ThermoBook - {temp:0} °C\nCPU {s.CpuUse:0}% · GPU {s.Gpu:0}% · RAM {s.RamPercent:0}%\nPerfil: {_profileLabel}";
         _tray.Text = tip.Length > 127 ? tip[..127] : tip; // limite do Windows para o tooltip
+    }
+
+    /// <summary>Roda uma tarefa da fase 11 num processo elevado (UAC) e avisa o resultado. Os botões que chamam isto chegam na 11.2/11.3.</summary>
+    internal async void RunTool(string task)
+    {
+        if (_toolRunning) return; // um UAC por vez
+        _toolRunning = true;
+        try
+        {
+            var r = await ElevatedTask.LaunchAsync(task); // não lança: erro e UAC cancelado viram relatório
+            _alertBalloonShown = false;
+            _tray.ShowBalloonTip(5000, "ThermoBook", r.Message, r.Outcome == TaskOutcome.Failed ? ToolTipIcon.Error : ToolTipIcon.Info);
+        }
+        finally { _toolRunning = false; }
     }
 
     private void ShowError(string message)
