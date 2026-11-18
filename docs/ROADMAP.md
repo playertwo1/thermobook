@@ -47,12 +47,14 @@ Não é código: é verificação no notebook, feita pelo dono. Detalhes em [arc
 **Objetivo:** o app escolhe o modo sozinho: na bateria → Economia, na tomada → Equilibrado, com um programa aberto (ex.: `ffmpeg`) → Frio. Desligado por padrão.
 
 ### 13.1 Motor de regras
-- [ ] `AutoMode.Decide(naTomada, programasAbertos, regras, último modo manual) → modo ou nada`, lógica pura, sem tocar no sistema.
-- [ ] Prioridade: alerta de temperatura (Frio automático da v0.1) > regra de programa > regra de energia. Entre programas, vale o primeiro da lista (A2).
-- [ ] Troca manual (bandeja, pílula, painel) vence até a próxima **mudança de condição** (tomada ↔ bateria, programa abre ou fecha); aí as regras voltam a mandar (A2).
-- [ ] `Settings.AutoRules` com padrão desligado e as 3 regras de exemplo do backlog; `settings.json` antigo carrega sem erro.
+- [x] `AutoMode.Decide(regras, naTomada, quente, programasAbertos) → modo ou nada`, lógica pura, sem tocar no sistema.
+- [x] Prioridade: alerta de temperatura (Frio automático da v0.1) > regra de programa > regra de energia. Entre programas, vale o primeiro da lista (A2).
+- [x] Troca manual (bandeja, pílula, painel, ou pelo Windows) vale até as regras pedirem **outro modo** (tomada ↔ bateria, programa abre ou fecha, temperatura); aí as regras voltam a mandar (A2).
+- [x] `Settings.Auto` com padrão desligado e as 3 regras de exemplo do backlog; `settings.json` antigo carrega sem erro.
 
 **Pronto quando:** testes cobrem cada regra, a prioridade, a troca manual pausando e voltando, regras vazias e `settings.json` sem o campo.
+
+> Feito na 13.1: `AutoMode` (`Services/AutoMode.cs`) com `Target` (o modo que as regras querem) e `Decide`, que só devolve um modo quando o desejado muda. Por isso não há "pausa" explícita: uma troca manual, venha de onde vier, fica até as regras pedirem outro modo; mudar de condição sem mudar o modo desejado (ex.: tirar da tomada com o `ffmpeg` aberto) não desfaz a troca manual. Programa casa pelo nome sem diferença de maiúsculas e com ou sem `.exe`; modo desconhecido numa regra é ignorado. `Settings.Auto` nulo = nunca configurado (desligado; a interface mostra `AutoRules.Default`). `TempAlert.Active` diz se o alerta está valendo (até esfriar 5 °C abaixo do limite), para a 13.2 passar como "quente". 18 testes novos (280 no total).
 
 ### 13.2 Ligar ao app
 - [ ] Energia: `SystemEvents.PowerModeChanged` + `SystemInformation.PowerStatus` (sem consulta repetida).

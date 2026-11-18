@@ -5,14 +5,14 @@
 **Atualizado em:** 2026-11-18
 **Versão publicada:** v0.1.0; pré-lançamento v0.2.0-beta.1
 **Pendente da v0.2:** verificação no notebook pelo dono ([checklist](VERIFICACAO.md)) e tag `v0.2.0` com aprovação. As fases 0–12 estão em [archive/ROADMAP-v0.2.md](archive/ROADMAP-v0.2.md).
-**Próxima subfase:** [13.1 Motor de regras](ROADMAP.md#131-motor-de-regras) do modo automático.
+**Próxima subfase:** [13.2 Ligar ao app](ROADMAP.md#132-ligar-ao-app) o modo automático.
 
 ## Progresso
 
 | Fase | Status |
 |---|---|
 | 0–12 v0.1 e v0.2 | ⚠️ no `main`, falta a verificação da v0.2 no notebook |
-| 13 Modo automático por regra | ⬜ não iniciada |
+| 13 Modo automático por regra | 🟨 em andamento (13.1 feita) |
 | 14 Limpeza agendada | ⬜ não iniciada |
 | 15 Temperatura da GPU NVIDIA | ⬜ não iniciada |
 | 16 Histórico em CSV e gráfico de 24 h | ⬜ não iniciada |
@@ -52,7 +52,7 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 
 | # | Pergunta | Proposta | Antes de |
 |---|---|---|---|
-| A2 | Quando várias regras valem ao mesmo tempo, e o que acontece com a troca manual | Alerta de temperatura > programa > energia; entre programas, o primeiro da lista. Troca manual vale até a próxima mudança de condição. | 13.1 |
+| A2 | Quando várias regras valem ao mesmo tempo, e o que acontece com a troca manual | Alerta de temperatura > programa > energia; entre programas, o primeiro da lista. Troca manual vale até as regras pedirem outro modo. (Implementado assim na 13.1.) | 13.1 |
 | A3 | Limpeza agendada: padrão e condições | Desligada por padrão; ao ligar, semanal no domingo às 12 h, só na tomada, roda depois se o PC estava desligado; nunca esvazia a Lixeira. | 14.1 |
 | A4 | GPU NVIDIA pela NVML (`nvml.dll`) em vez do `nvidia-smi` do backlog | NVML: é API, não abre processo a cada segundo (regra do AGENTS). | 15.1 |
 | A5 | A pílula e o alerta passam a usar a temperatura da GPU? | Não: continuam na CPU; a GPU aparece no flyout, no painel e no CSV. | 15.2 |
@@ -70,4 +70,5 @@ Confirmar com o dono antes da subfase indicada. Se não houver resposta, siga a 
 
 ## Notas da última sessão
 
+- 13.1: `AutoMode` (regras puras, edge-triggered: só pede troca quando o modo desejado muda), `AutoRules`/`ProgramRule`, `Settings.Auto` (null = nunca configurado) e `TempAlert.Active`. Nada ligado ao app ainda (13.2). 280 testes passando.
 - Roadmap novo (fases 13–18) com os itens 1–5 do backlog; fases 0–12 e o STATE da v0.2 arquivados em `docs/archive/`. Nenhum código mudou.

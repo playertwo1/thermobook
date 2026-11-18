@@ -1960,3 +1960,137 @@ public class TweaksTests
         Assert.All(Tweaks.All, t => Assert.Null(raiz.Valor(t)));
     }
 }
+
+public class AutoModeTests
+{
+    private static readonly AutoRules Regras = new(Enabled: true, OnBattery: "Economia", OnAc: "Equilibrado",
+        Programs: [new("ffmpeg", "Frio"), new("HandBrake.exe", "Máximo")]);
+
+    private static string? Nome(PowerMode? m) => m?.Name;
+
+    [Theory]
+    [InlineData(false, false, new string[0], "Economia")]
+    [InlineData(true, false, new string[0], "Equilibrado")]
+    [InlineData(true, false, new[] { "explorer", "ffmpeg" }, "Frio")]
+    [InlineData(false, false, new[] { "FFMPEG" }, "Frio")] // nome sem diferença de maiúsculas
+    [InlineData(true, false, new[] { "handbrake" }, "Máximo")] // ".exe" na regra é ignorado
+    [InlineData(true, false, new[] { "handbrake", "ffmpeg" }, "Frio")] // vale o primeiro da lista de regras
+    [InlineData(true, true, new[] { "handbrake" }, "Frio")] // temperatura alta vence o programa
+    public void Target_segue_a_prioridade(bool tomada, bool quente, string[] abertos, string esperado)
+    {
+        Assert.Equal(esperado, Nome(AutoMode.Target(Regras, tomada, quente, abertos)));
+    }
+
+    [Fact]
+    public void Regra_sem_modo_ou_com_modo_desconhecido_nao_vale()
+    {
+        var regras = Regras with { OnBattery = null, Programs = [new("ffmpeg", "Turbo"), new("x", "Alto")] };
+        Assert.Null(AutoMode.Target(regras, onAc: false, hot: false, ["ffmpeg"]));
+        Assert.Equal("Alto", Nome(AutoMode.Target(regras, false, false, ["ffmpeg", "x.exe"])));
+    }
+
+    [Fact]
+    public void Regras_vazias_nao_pedem_nada()
+    {
+        var vazias = new AutoRules(Enabled: true, OnBattery: null, OnAc: null);
+        Assert.Null(AutoMode.Target(vazias, true, false, ["ffmpeg"]));
+        Assert.Null(new AutoMode().Decide(vazias, true, false, ["ffmpeg"]));
+    }
+
+    [Fact]
+    public void So_pede_troca_quando_o_modo_desejado_muda()
+    {
+        var auto = new AutoMode();
+        Assert.Equal("Equilibrado", Nome(auto.Decide(Regras, true, false, [])));
+        Assert.Null(auto.Decide(Regras, true, false, [])); // nada mudou: não reaplica (troca manual continua valendo)
+        Assert.Equal("Frio", Nome(auto.Decide(Regras, true, false, ["ffmpeg"])));
+        Assert.Null(auto.Decide(Regras, false, false, ["ffmpeg"])); // tirou da tomada, mas o programa ainda manda: Frio de novo não
+        Assert.Equal("Economia", Nome(auto.Decide(Regras, false, false, [])));
+    }
+
+    [Fact]
+    public void Temperatura_alta_segura_o_frio_e_depois_volta()
+    {
+        var auto = new AutoMode();
+        auto.Decide(Regras, true, false, []);
+        Assert.Equal("Frio", Nome(auto.Decide(Regras, true, true, [])));
+        Assert.Equal("Equilibrado", Nome(auto.Decide(Regras, true, false, [])));
+    }
+
+    [Fact]
+    public void Desligado_nao_pede_nada_e_ao_religar_aplica_de_novo()
+    {
+        var auto = new AutoMode();
+        Assert.Null(auto.Decide(null, true, false, []));
+        Assert.Null(auto.Decide(Regras with { Enabled = false }, true, false, []));
+        Assert.Equal("Equilibrado", Nome(auto.Decide(Regras, true, false, [])));
+        auto.Decide(Regras with { Enabled = false }, true, false, []);
+        Assert.Equal("Equilibrado", Nome(auto.Decide(Regras, true, false, []))); // mesmo modo de antes, mas religou
+    }
+
+    [Fact]
+    public void Editar_as_regras_aplica_se_o_modo_desejado_mudar()
+    {
+        var auto = new AutoMode();
+        auto.Decide(Regras, true, false, []);
+        Assert.Equal("Alto", Nome(auto.Decide(Regras with { OnAc = "Alto" }, true, false, [])));
+    }
+
+    [Fact]
+    public void Padrao_vem_desligado_com_as_regras_do_backlog()
+    {
+        var d = AutoRules.Default;
+        Assert.False(d.Enabled);
+        Assert.Equal("Economia", d.OnBattery);
+        Assert.Equal("Equilibrado", d.OnAc);
+        Assert.Equal(new ProgramRule("ffmpeg", "Frio"), Assert.Single(d.Programs!));
+    }
+
+    private static string TempFile() => Path.Combine(Path.GetTempPath(), "thermobook-tests", Guid.NewGuid() + ".json");
+
+    [Fact]
+    public void Settings_antigo_carrega_sem_regras()
+    {
+        var path = TempFile();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "Profile": "Frio", "AutoCool": true }""");
+        Assert.Null(new SettingsStore(path).Load().Auto);
+    }
+
+    [Fact]
+    public void Regras_vao_e_voltam_do_settings()
+    {
+        var store = new SettingsStore(TempFile());
+        store.Save(new Settings(Auto: Regras));
+        var lido = store.Load().Auto!;
+        Assert.True(lido.Enabled);
+        Assert.Equal("Equilibrado", lido.OnAc);
+        Assert.Equal(Regras.Programs, lido.Programs);
+    }
+
+    [Fact]
+    public void Regras_com_campos_faltando_ganham_o_padrao()
+    {
+        var path = TempFile();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, """{ "Auto": { "Enabled": true } }""");
+        var lido = new SettingsStore(path).Load().Auto!;
+        Assert.Equal(("Economia", "Equilibrado"), (lido.OnBattery, lido.OnAc));
+        Assert.Null(lido.Programs);
+    }
+
+    [Fact]
+    public void Alerta_fica_ativo_ate_esfriar_5_graus()
+    {
+        var t0 = new DateTime(2026, 1, 1, 12, 0, 0);
+        var alerta = new TempAlert(90, TimeSpan.FromSeconds(30));
+        alerta.Check(95, t0);
+        Assert.False(alerta.Active);
+        alerta.Check(95, t0.AddSeconds(30));
+        Assert.True(alerta.Active);
+        alerta.Check(87, t0.AddSeconds(40));
+        Assert.True(alerta.Active);
+        alerta.Check(84, t0.AddSeconds(50));
+        Assert.False(alerta.Active);
+    }
+}

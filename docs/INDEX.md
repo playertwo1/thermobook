@@ -40,6 +40,7 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 | `src/ThermoBook/Services/ElevatedTask.cs` | Fase 11: relança o app com UAC (`--tarefa`), lista fechada de tarefas, relatório JSON. |
 | `src/ThermoBook/Services/Tweaks.cs` | Fase 11.3: ajustes de registro com backup e Desfazer, TRIM, status do Defender, apps pré-instalados. |
 | `src/ThermoBook/Services/Uninstall.cs` | Fase 12.2: o que o desinstalador desfaz (`--restaurar`): segundo plano, ajustes da otimização, modo Eficiência. |
+| `src/ThermoBook/Services/AutoMode.cs` | Fase 13: regras do modo automático (tomada/bateria, programa aberto, temperatura alta) e decisão de quando trocar. |
 | `src/ThermoBook/ToolsPage.cs` | Aba Ferramentas: limpeza (11.2) e otimização do Windows (11.3: itens marcáveis, Aplicar, Desfazer). |
 | `tests/ThermoBook.Tests/CoreTests.cs` | Testes xUnit. |
 | `installer/ThermoBook.iss` | Instalador Inno Setup. |
@@ -51,7 +52,6 @@ Mapa do repositório. Se criar ou mover um arquivo importante, atualize aqui.
 
 | Caminho | Fase |
 |---|---|
-| `src/ThermoBook/Services/AutoMode.cs` | 13 |
 | `src/ThermoBook/Services/CleanupSchedule.cs` | 14 |
 | `src/ThermoBook/Services/NvidiaSensor.cs` | 15 |
 | `src/ThermoBook/Services/HistoryWriter.cs` | 16 |

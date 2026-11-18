@@ -9,6 +9,9 @@ internal sealed class TempAlert(double limit, TimeSpan duration)
     private DateTime? _since;
     private bool _fired;
 
+    /// <summary>Avisou e ainda não esfriou 5 °C abaixo do limite (o modo automático segura o Frio enquanto isso).</summary>
+    public bool Active => _fired;
+
     /// <returns>true no momento em que o aviso deve ser mostrado.</returns>
     public bool Check(double celsius, DateTime now)
     {
