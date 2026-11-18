@@ -120,11 +120,13 @@ Feitas e publicadas. Detalhes e decisões em [PLANO.md](PLANO.md). Resultado: ba
 **Objetivo:** a cápsula do [DESIGN.md](../DESIGN.md#pílula-estado-padrão), sempre visível, presa à borda. Pode começar em paralelo à fase 7 (só depende do `Snapshot` do `SensorService`).
 
 ### 9.1 Janela base
-- [ ] `PillForm`: sem borda, `TopMost`, `ShowInTaskbar = false`, estilos `WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE` (não rouba foco, fora do Alt+Tab).
-- [ ] Cantos arredondados com `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE)` no Windows 11, `Region` como plano B.
-- [ ] Pintura própria com double buffer; redesenha só quando algum valor arredondado muda.
+- [x] `PillForm`: sem borda, `TopMost`, `ShowInTaskbar = false`, estilos `WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE` (não rouba foco, fora do Alt+Tab).
+- [x] Cantos arredondados com `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE)` no Windows 11, `Region` como plano B.
+- [x] Pintura própria com double buffer; redesenha só quando algum valor arredondado muda.
 
 **Pronto quando:** clicar na pílula com o Bloco de Notas em foco não tira o foco do Bloco de Notas; a pílula não aparece no Alt+Tab.
+
+> Feito no PR da 9.1: `PillForm` (`WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE`, `WM_MOUSEACTIVATE` → `MA_NOACTIVATE`, `TopMost`, fora da barra de tarefas), cantos pelo DWM com `Region` como plano B, `PillState` arredondado para só redesenhar quando algo muda, e item provisório "Mostrar pílula" no menu da bandeja (a 9.4 refina). Estilos de janela testados; pintura é mínima (o desenho final é a 9.2). **Falta verificar rodando o app:** clicar na pílula com o Bloco de Notas em foco não tira o foco dele; a pílula não aparece no Alt+Tab. Observação: o atributo de cantos do DWM no Windows 11 arredonda pouco (não é uma cápsula completa); conferir o visual no 9.2.
 
 ### 9.2 Conteúdo
 - [ ] Linhas: temperatura (cor por limiar), CPU, GPU, RAM (número + medidor de 2 px), modo atual (ponto; anel se segundo plano ligado).

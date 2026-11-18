@@ -309,6 +309,50 @@ public class MainFormTests
     private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
 }
 
+public class PillTests
+{
+    private static Snapshot Snap(double cpu, double gpu, double ramUsed, double temp) =>
+        new(cpu, 2.1, 90, gpu, 0, 0, 0, ramUsed, 100, 0, 0, 0, 0, [temp]);
+
+    [Fact]
+    public void Arredonda_os_valores_mostrados()
+    {
+        var a = PillState.From(Snap(cpu: 12.6, gpu: 2.4, ramUsed: 60.6, temp: 54.4));
+        Assert.Equal(new PillState(54, 13, 2, 61), a);
+
+        // Valores que arredondam igual geram estado igual: a pílula não redesenha.
+        var b = PillState.From(Snap(cpu: 12.9, gpu: 1.6, ramUsed: 60.9, temp: 54.2));
+        Assert.True(a == b);
+    }
+
+    [Fact]
+    public void Estilos_da_janela_nao_roubam_foco_nem_aparecem_na_barra()
+    {
+        using var form = new PillForm();
+        _ = form.Handle;
+        int ex = GetWindowLongW(form.Handle, -20 /* GWL_EXSTYLE */);
+        Assert.NotEqual(0, ex & 0x80 /* WS_EX_TOOLWINDOW */);
+        Assert.NotEqual(0, ex & 0x08000000 /* WS_EX_NOACTIVATE */);
+        Assert.False(form.ShowInTaskbar);
+        Assert.True(form.TopMost);
+    }
+
+    [Fact]
+    public void Push_repetido_nao_quebra_a_janela()
+    {
+        using var form = new PillForm();
+        _ = form.Handle;
+        var s = Snap(cpu: 12.6, gpu: 2.4, ramUsed: 60.6, temp: 54.4);
+        form.Push(s);
+        form.Push(s);
+        Assert.False(form.IsDisposed);
+        Assert.True(form.IsHandleCreated);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static extern int GetWindowLongW(IntPtr hwnd, int index);
+}
+
 public class TrayIconRendererTests
 {
     [Theory]
