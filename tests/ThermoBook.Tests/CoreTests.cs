@@ -580,11 +580,11 @@ public class PillTests
     [Fact]
     public void Arredonda_os_valores_mostrados()
     {
-        var a = PillState.From(Snap(cpu: 12.6, gpu: 2.4, ramUsed: 60.6, temp: 54.4));
-        Assert.Equal(new PillState(54, 13, 2, 61), a);
+        var a = PillState.From(Snap(cpu: 12.6, gpu: 2.4, ramUsed: 60.6, temp: 54.4) with { DiskActive = 14.6 });
+        Assert.Equal(new PillState(54, 13, 2, 61, 15), a);
 
         // Valores que arredondam igual geram estado igual: a pílula não redesenha.
-        var b = PillState.From(Snap(cpu: 12.9, gpu: 1.6, ramUsed: 60.9, temp: 54.2));
+        var b = PillState.From(Snap(cpu: 12.9, gpu: 1.6, ramUsed: 60.9, temp: 54.2) with { DiskActive = 15.2 });
         Assert.True(a == b);
     }
 
@@ -631,7 +631,7 @@ public class PillTests
             var it = items[i];
             Assert.True(bounds.Contains(it.Row), $"linha {i} fora da janela");
             Assert.True(it.Row.Contains(it.Value), $"valor {i} fora da linha");
-            Assert.Equal(i is PillLayout.Cpu or PillLayout.Gpu or PillLayout.Ram, it.Meter is not null);
+            Assert.Equal(i is PillLayout.Cpu or PillLayout.Gpu or PillLayout.Ram or PillLayout.Disk, it.Meter is not null);
             if (it.Meter is { } m)
             {
                 Assert.True(it.Row.Contains(m), $"medidor {i} fora da linha");
@@ -647,7 +647,7 @@ public class PillTests
     {
         var (size, items) = PillLayout.Compute(Orientation.Vertical, 1f);
         Assert.Equal(40, size.Width);
-        foreach (var i in new[] { PillLayout.Cpu, PillLayout.Gpu, PillLayout.Ram })
+        foreach (var i in new[] { PillLayout.Cpu, PillLayout.Gpu, PillLayout.Ram, PillLayout.Disk })
             Assert.Equal(32, items[i].Row.Height);
     }
 
@@ -667,15 +667,18 @@ public class PillTests
         Assert.Null(semRam.Ram);
         var semCpu = PillState.From(Snap(cpu: double.NaN, gpu: 2, ramUsed: 60, temp: 54));
         Assert.Null(semCpu.Cpu);
+        var semDisco = PillState.From(Snap(cpu: 12, gpu: 2, ramUsed: 60, temp: 54) with { DiskActive = double.NaN });
+        Assert.Null(semDisco.Disk);
     }
 
     [Fact]
     public void Nome_acessivel_de_cada_linha()
     {
-        var st = new PillState(54, 13, 2, 61);
+        var st = new PillState(54, 13, 2, 61, 8);
         Assert.Equal("Temperatura: 54 graus", PillForm.RowName(PillLayout.Temp, st, null, false));
         Assert.Equal("Processador: 13 por cento", PillForm.RowName(PillLayout.Cpu, st, null, false));
         Assert.Equal("Memória RAM: indisponível", PillForm.RowName(PillLayout.Ram, st with { Ram = null }, null, false));
+        Assert.Equal("Disco: 8 por cento", PillForm.RowName(PillLayout.Disk, st, null, false));
         Assert.Equal("Modo de energia: Personalizado", PillForm.RowName(PillLayout.Mode, st, null, false));
         Assert.Equal("Modo de energia: Frio, segundo plano ligado",
             PillForm.RowName(PillLayout.Mode, st, PowerService.ModeByName("Frio"), true));

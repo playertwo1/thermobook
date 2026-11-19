@@ -15,7 +15,7 @@
   <a href="docs/ROADMAP.md">Roadmap</a>
 </p>
 
-**ThermoBook** é uma pílula flutuante para Windows que mostra **temperatura, CPU, GPU e RAM** o tempo todo, presa à borda da tela, e troca o **modo de energia** do processador com um clique. Feito para notebooks finos que esquentam: no notebook de testes (Samsung Galaxy Book6 Pro), o modo **Frio** baixou a temperatura sob carga de **83–86 °C para 54–57 °C**.
+**ThermoBook** é uma pílula flutuante para Windows que mostra **temperatura, CPU, GPU, RAM e disco** o tempo todo, presa à borda da tela, e troca o **modo de energia** do processador com um clique. Feito para notebooks finos que esquentam: no notebook de testes (Samsung Galaxy Book6 Pro), o modo **Frio** baixou a temperatura sob carga de **83–86 °C para 54–57 °C**.
 
 Ele substitui uma pasta de scripts `.bat`/`.ps1` (modos de energia, tampa fechada sem suspender, desligar a tela, limpeza, otimização) por um app só, **sem rodar como administrador** e **sem driver de kernel**.
 
@@ -36,7 +36,7 @@ Ele substitui uma pasta de scripts `.bat`/`.ps1` (modos de energia, tampa fechad
 
 | | |
 |---|---|
-| **Pílula** | Temperatura com cor por limiar (verde < 75 °C, laranja até 89 °C, vermelho a partir de 90 °C), CPU, GPU e RAM com medidor, e um ponto com o modo atual. Encaixa em qualquer borda ou canto como um notch; some com app em tela cheia; não rouba o foco nem aparece no Alt+Tab. |
+| **Pílula** | Temperatura com cor por limiar (verde < 75 °C, laranja até 89 °C, vermelho a partir de 90 °C), CPU, GPU, RAM e disco com medidor, e um ponto com o modo atual. Encaixa em qualquer borda ou canto como um notch; some com app em tela cheia; não rouba o foco nem aparece no Alt+Tab. |
 | **6 modos de energia** | Economia, Frio, Eficiência, Equilibrado, Alto e Máximo. Gravam turbo, limites de CPU, EPP, núcleos e disco ocioso no plano ativo. |
 | **Modo segundo plano** | Tampa fechada e inatividade não suspendem o PC. Guarda os valores originais de cada plano e devolve exatamente esses ao desligar. |
 | **Desligar a tela** | Botão no painel rápido e atalho global `Ctrl+Alt+Shift+D` (configurável). |

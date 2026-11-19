@@ -15,6 +15,7 @@ colors:
   cpu: "#409CFF"
   gpu: "#B482FF"
   ram: "#3CC8C8"
+  disk: "#F0C83C"
 typography:
   family: "Segoe UI Variable, Segoe UI"
   pill-value: { size: "13px", weight: 700 }
@@ -76,6 +77,7 @@ Segoe UI Variable. Na pílula: valor 13 px negrito com números tabulares (não 
  │ 12 │  CPU %   ▏medidor de 3 px na cor da métrica
  │  3 │  GPU %
  │ 61 │  RAM %
+ │  8 │  Disco %
  │ ── │
  │  ● │  modo atual (ponto; anel quando segundo plano está ligado)
  ╰────╯

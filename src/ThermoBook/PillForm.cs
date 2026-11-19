@@ -6,10 +6,10 @@ using ThermoBook.Services;
 namespace ThermoBook;
 
 /// <summary>Valores já arredondados da pílula (null = indisponível, mostra "–"): a janela só se redesenha quando algum muda.</summary>
-internal readonly record struct PillState(int? Temp, int? Cpu, int? Gpu, int? Ram)
+internal readonly record struct PillState(int? Temp, int? Cpu, int? Gpu, int? Ram, int? Disk)
 {
     public static PillState From(Snapshot s) => new(
-        s.Temps.Length > 0 ? Round(s.TempMax) : null, Round(s.CpuUse), Round(s.Gpu), s.RamTotal > 0 ? Round(s.RamPercent) : null);
+        s.Temps.Length > 0 ? Round(s.TempMax) : null, Round(s.CpuUse), Round(s.Gpu), s.RamTotal > 0 ? Round(s.RamPercent) : null, Round(s.DiskActive));
 
     private static int? Round(double v) => double.IsFinite(v) ? (int)Math.Round(v) : null;
 }
@@ -23,8 +23,9 @@ internal sealed class PillForm : FloatingForm
     private static readonly Color Bg = Color.Black, Border = Color.FromArgb(0x24, 0x24, 0x24), Fg = Color.FromArgb(0xF4, 0xF4, 0xF6);
 
     private static readonly Color Muted = Color.FromArgb(0xA9, 0xAB, 0xB5), Track = Color.FromArgb(0x24, 0x24, 0x24),
-        CpuColor = Color.FromArgb(0x40, 0x9C, 0xFF), GpuColor = Color.FromArgb(0xB4, 0x82, 0xFF), RamColor = Color.FromArgb(0x3C, 0xC8, 0xC8);
-    private static readonly string[] RowNames = ["Temperatura", "Processador", "GPU", "Memória RAM", "Modo de energia"];
+        CpuColor = Color.FromArgb(0x40, 0x9C, 0xFF), GpuColor = Color.FromArgb(0xB4, 0x82, 0xFF), RamColor = Color.FromArgb(0x3C, 0xC8, 0xC8),
+        DiskColor = Color.FromArgb(0xF0, 0xC8, 0x3C);
+    private static readonly string[] RowNames = ["Temperatura", "Processador", "GPU", "Memória RAM", "Disco", "Modo de energia"];
 
     private PillState? _state;
     private string? _monitor;
@@ -188,12 +189,12 @@ internal sealed class PillForm : FloatingForm
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-        var st = _state ?? new PillState(null, null, null, null);
-        int?[] values = [st.Temp, st.Cpu, st.Gpu, st.Ram];
-        Color[] colors = [st.Temp is { } t ? TrayIconRenderer.TempColor(t) : Muted, CpuColor, GpuColor, RamColor];
+        var st = _state ?? new PillState(null, null, null, null, null);
+        int?[] values = [st.Temp, st.Cpu, st.Gpu, st.Ram, st.Disk];
+        Color[] colors = [st.Temp is { } t ? TrayIconRenderer.TempColor(t) : Muted, CpuColor, GpuColor, RamColor, DiskColor];
         using var fmt = new StringFormat(StringFormat.GenericTypographic)
             { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap };
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < values.Length; i++)
         {
             var item = _items[i];
             string text = values[i] is { } v ? (i == PillLayout.Temp ? $"{v}°" : v.ToString()) : "–";
@@ -242,7 +243,7 @@ internal sealed class PillForm : FloatingForm
     /// <summary>Texto lido pelo leitor de tela para cada linha.</summary>
     internal static string RowName(int index, PillState? st, PowerMode? mode, bool background, bool auto = false)
     {
-        int? v = index switch { PillLayout.Temp => st?.Temp, PillLayout.Cpu => st?.Cpu, PillLayout.Gpu => st?.Gpu, PillLayout.Ram => st?.Ram, _ => null };
+        int? v = index switch { PillLayout.Temp => st?.Temp, PillLayout.Cpu => st?.Cpu, PillLayout.Gpu => st?.Gpu, PillLayout.Ram => st?.Ram, PillLayout.Disk => st?.Disk, _ => null };
         return index switch
         {
             PillLayout.Temp => $"Temperatura: {(v is { } t ? $"{t} graus" : "indisponível")}",
