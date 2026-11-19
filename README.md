@@ -19,7 +19,7 @@
 
 Ele substitui uma pasta de scripts `.bat`/`.ps1` (modos de energia, tampa fechada sem suspender, desligar a tela, limpeza, otimização) por um app só, **sem rodar como administrador** e **sem driver de kernel**.
 
-> **Estado:** a [v0.1.0](https://github.com/playertwo1/thermobook/releases/tag/v0.1.0) (bandeja e painel) é a versão estável. A **v0.3** (pílula, 6 modos, segundo plano, ferramentas, modo automático, limpeza agendada, histórico, GPU NVIDIA e atualização automática) está no [pré-lançamento v0.3.0-beta.2](https://github.com/playertwo1/thermobook/releases/tag/v0.3.0-beta.2) e em [verificação no notebook](docs/VERIFICACAO-v0.3.md).
+> **Estado:** a [v0.4.0](https://github.com/playertwo1/thermobook/releases/tag/v0.4.0) é a versão atual (pílula com temperatura, CPU, GPU, RAM e disco, 6 modos, segundo plano, ferramentas, modo automático, limpeza agendada, histórico, GPU NVIDIA e atualização automática).
 
 ## Sumário
 
@@ -171,8 +171,8 @@ dotnet run --project src/ThermoBook
 Instalador (precisa do Inno Setup 6: `winget install JRSoftware.InnoSetup`):
 
 ```
-dotnet publish src/ThermoBook -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:Version=0.3.0-beta.2 -o publish
-ISCC installer\ThermoBook.iss /DMyAppVersion=0.3.0-beta.2
+dotnet publish src/ThermoBook -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:Version=0.4.0 -o publish
+ISCC installer\ThermoBook.iss /DMyAppVersion=0.4.0
 ```
 
 O instalador sai em `installer\Output\`. A publicação de novas releases é feita localmente via `git tag` e `gh release create` após rodar os testes (`dotnet test -c Release`).
